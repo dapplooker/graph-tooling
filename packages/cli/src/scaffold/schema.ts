@@ -76,9 +76,7 @@ export const generateEventType = (
   protocolName: string,
   contractName: string | undefined,
 ) => {
-  return `type ${
-    event.collision ? `${contractName}${event._alias}` : event._alias
-  } @entity(immutable: true) {
+  return `type ${contractName}${event._alias}Event @entity(immutable: true) {
         id: Bytes!
         ${event.inputs
           .reduce((acc: any[], input: any, index: number) => {
@@ -107,7 +105,7 @@ export const generateExampleEntityType = (protocol: Protocol, contractName: stri
         .slice(0, 2)
         .join('\n')}
 }`
-  } else {
+  }
     return `type ${contractName.slice(0, 3)}Transaction @entity {
   id: ID!
   signerId: String!
@@ -121,5 +119,5 @@ export const generateExampleEntityType = (protocol: Protocol, contractName: stri
   deposit: BigInt!
   output: String
 }`;
-  }
+
 }

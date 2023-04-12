@@ -139,17 +139,11 @@ dataSources:
 
     generateSchema({ abi, contractName }: { abi: { data: immutable.Collection<any, any> }, contractName: string }) {
         const hasEvents = this.protocol.hasEvents()
-        const events = hasEvents
-            ? abiEvents(abi).toJS()
-            : []
+        const events = hasEvents? abiEvents(abi).toJS(): []
 
-        return prettier.format(
-            hasEvents
-                ? events.map(
-                    event => generateEventType(event, this.protocol.name, contractName)
-                )
-                    .join('\n\n')
-                : generateExampleEntityType(this.protocol, contractName, events),
+        return prettier.format(hasEvents ? events.map(
+            event => generateEventType(event, this.protocol.name, contractName)).join('\n\n') :
+                generateExampleEntityType(this.protocol, contractName, events),
             {
                 parser: 'graphql',
             },
@@ -160,13 +154,10 @@ dataSources:
         const schema: string[] = []
         const fromContracts: Contract[] = this.fromContracts ?? [];
         for (let i = 0; i < fromContracts.length; i++) {
-            const fromContract = fromContracts[i]
-            schema.push(this.generateSchema({
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                abi: fromContract.contractAbi,
-                contractName: fromContract.contractName
-            }))
+            const fromContract: Contract = fromContracts[i]
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            schema.push(this.generateSchema({ abi: fromContract.contractAbi, contractName: fromContract.contractName }))
         }
         return schema.join('\n')
     }
