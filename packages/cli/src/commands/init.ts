@@ -946,6 +946,7 @@ async function initSubgraphFromContract(
     async spinner => {
       const scaffold = await generateScaffold(
         {
+          etherscanApikey: undefined, fromContracts: undefined,
           protocolInstance,
           subgraphName,
           abi,
@@ -954,7 +955,7 @@ async function initSubgraphFromContract(
           indexEvents,
           contractName,
           startBlock,
-          node,
+          node
         },
         spinner,
       );

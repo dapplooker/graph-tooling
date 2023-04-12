@@ -12,7 +12,7 @@ import { updateNetworksFile } from '../command-helpers/network';
 import {
   generateDataSource,
   writeABI,
-  writeMapping,
+  // writeMapping,
   writeSchema,
   writeTestsFiles,
 } from '../command-helpers/scaffold';
@@ -122,7 +122,7 @@ export default class AddCommand extends Command {
       collisionEntities,
       contractName,
     );
-    await writeMapping(ethabi, protocol, contractName, collisionEntities);
+    // await writeMapping(ethabi, protocol, contractName, collisionEntities);
     await writeTestsFiles(ethabi, protocol, contractName);
 
     const dataSources = result.get('dataSources');

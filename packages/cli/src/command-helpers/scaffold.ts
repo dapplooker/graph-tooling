@@ -1,13 +1,12 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { strings } from 'gluegun';
 import { Map } from 'immutable';
 import prettier from 'prettier';
 import yaml from 'yaml';
 import Protocol from '../protocols';
 import ABI from '../protocols/ethereum/abi';
 import Scaffold from '../scaffold';
-import { generateEventIndexingHandlers } from '../scaffold/mapping';
+// import { generateEventIndexingHandlers } from '../scaffold/mapping';
 import { abiEvents, generateEventType } from '../scaffold/schema';
 import { generateTestsFiles } from '../scaffold/tests';
 import { Spinner, step } from './spinner';
@@ -54,6 +53,8 @@ export const generateScaffold = async (
     contract,
     network,
     subgraphName,
+    fromContracts,
+    etherscanApikey,
     indexEvents,
     contractName = 'Contract',
     startBlock,
@@ -64,6 +65,8 @@ export const generateScaffold = async (
     contract: string;
     network: string;
     subgraphName: string;
+    fromContracts: any[] | undefined;
+    etherscanApikey: string | undefined;
     indexEvents: boolean;
     contractName?: string;
     startBlock?: string;
@@ -82,6 +85,8 @@ export const generateScaffold = async (
     contractName,
     startBlock,
     subgraphName,
+    fromContracts,
+    etherscanApikey,
     node,
   });
 
@@ -145,25 +150,30 @@ export const writeSchema = async (
   await fs.appendFile(schemaPath, data, { encoding: 'utf-8' });
 };
 
-export const writeMapping = async (
-  abi: ABI,
-  protocol: Protocol,
-  contractName: string,
-  entities: any,
-) => {
-  const events = protocol.hasEvents()
-    ? abiEvents(abi)
-        .filter(event => !entities.includes(event.get('name')))
-        .toJS()
-    : [];
-
-  const mapping = prettier.format(generateEventIndexingHandlers(events, contractName), {
-    parser: 'typescript',
-    semi: false,
-  });
-
-  await fs.writeFile(`./src/${strings.kebabCase(contractName)}.ts`, mapping, 'utf-8');
-};
+// export const writeMapping = async (
+//   abi: ABI,
+//   protocol: Protocol,
+//   contractName: string,
+//   entities: any,
+// ) => {
+//   const events = protocol.hasEvents()
+//     ? abiEvents(abi)
+//         .filter(event => !entities.includes(event.get('name')))
+//         .toJS()
+//     : [];
+//
+//   const mapping = prettier.format(generateEventIndexingHandlers({
+//     events,
+//     contractName,
+//     contract: ,
+//     isTemplateContract: false,
+//     methods: [] }), {
+//     parser: 'typescript',
+//     semi: false,
+//   });
+//
+//   await fs.writeFile(`./src/${strings.kebabCase(contractName)}.ts`, mapping, 'utf-8');
+// };
 
 export const writeTestsFiles = async (abi: ABI, protocol: Protocol, contractName: string) => {
   const hasEvents = protocol.hasEvents();

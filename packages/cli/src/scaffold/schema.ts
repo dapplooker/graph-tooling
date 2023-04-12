@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import immutable from 'immutable';
 import { ascTypeForProtocol, valueTypeForAsc } from '../codegen/types';
 import * as util from '../codegen/util';
@@ -12,6 +14,17 @@ export function abiEvents(abi: { data: immutable.Collection<any, any> }) {
     getName: event => event.get('name'),
     // @ts-expect-error improve typings of disambiguateNames to handle iterables
     setName: (event, name) => event.set('_alias', name),
+  }) as unknown as immutable.List<any>;
+}
+
+export function abiMethods(abi: { data: immutable.Collection<any, any> }) {
+  return util.disambiguateNames({
+    // @ts-expect-error improve typings of disambiguateNames to handle iterables
+    values: abi.data.filter(item => item.get('type') === 'function' && item.get('stateMutability') !== 'view' && item.get('stateMutability') !== 'pure'),
+    // @ts-expect-error improve typings of disambiguateNames to handle iterables
+    getName: method => method.get('name'),
+    // @ts-expect-error improve typings of disambiguateNames to handle iterables
+    setName: (method, name) => method.set('_alias', name.replace(/[^a-zA-Z0-9]/g, '')),
   }) as unknown as immutable.List<any>;
 }
 
@@ -81,24 +94,32 @@ export const generateEventType = (
       }`;
 };
 
-export const generateExampleEntityType = (protocol: Protocol, events: any[]) => {
+export const generateExampleEntityType = (protocol: Protocol, contractName: string, events: any[]) => {
   if (protocol.hasABIs() && events.length > 0) {
+
     return `type ExampleEntity @entity {
-  id: Bytes!
+  id: ID!
   count: BigInt!
   ${events[0].inputs
-    .reduce(
-      (acc: any[], input: any, index: number) =>
-        acc.concat(generateEventFields({ input, index, protocolName: protocol.name })),
-      [],
-    )
-    .slice(0, 2)
-    .join('\n')}
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        .reduce((acc, input, index) => acc.concat(generateEventFields({ input, index, protocolName: protocol.name })), [])
+        .slice(0, 2)
+        .join('\n')}
+}`
+  } else {
+    return `type ${contractName.slice(0, 3)}Transaction @entity {
+  id: ID!
+  signerId: String!
+  receiverId: String!
+  blockTimestamp: BigInt!
+  blockNumber: BigInt!
+  kind: String!
+  gasPrice: BigInt!
+  methodName: String!
+  gasBurnt: String!
+  deposit: BigInt!
+  output: String
 }`;
   }
-  return `type ExampleEntity @entity {
-  id: ID!
-  block: Bytes!
-  count: BigInt!
-}`;
-};
+}
