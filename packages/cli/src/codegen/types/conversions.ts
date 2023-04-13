@@ -267,7 +267,7 @@ const ASSEMBLYSCRIPT_TO_ETHEREUM_VALUE = [
 const VALUE_TO_ASSEMBLYSCRIPT = [
   // Arrays
 
-  ['[Bytes]', 'Array<Bytes>', (code: any) => `${code}.toBytesArray()`],
+  ['[Bytes]', 'Array<Address>', (code: any) => `${code}.toAddressArray()`],
   ['[Boolean]', 'Array<boolean>', (code: any) => `${code}.toBooleanArray()`],
   ['[Int]', 'Array<i32>', (code: any) => `${code}.toI32Array()`],
   ['[BigInt]', 'Array<BigInt>', (code: any) => `${code}.toBigIntArray()`],
