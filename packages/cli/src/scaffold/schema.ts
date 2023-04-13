@@ -71,13 +71,45 @@ export const generateEventFields = ({
         }),
       ];
 
+
+/*
+      id: ID!
+      txHash: Bytes
+      fromAddress: Bytes # address
+      toAddress: Bytes # address
+      valueTransferred: BigInt
+      gasLimit: BigInt
+      gasPrice: BigInt
+      ${event.inputs
+        .reduce(
+            (acc, input, index) => {
+                if (input.name == 'id') {
+                    return acc
+                }
+                if (input.name == 'blockTimestamp') {
+                    acc.shift()
+                }
+                return acc.concat(generateEventFields({ input, index, protocolName }))
+            },
+            [`blockTimestamp: BigInt! # uint256`],
+        )
+        .join('\n')}
+    }`
+ */
+
 export const generateEventType = (
   event: any,
   protocolName: string,
   contractName: string | undefined,
 ) => {
   return `type ${contractName}${event._alias}Event @entity(immutable: true) {
-        id: Bytes!
+      id: ID!
+      txHash: Bytes
+      fromAddress: Bytes # address
+      toAddress: Bytes # address
+      valueTransferred: BigInt
+      gasLimit: BigInt
+      gasPrice: BigInt
         ${event.inputs
           .reduce((acc: any[], input: any, index: number) => {
             if (Object.values(INPUT_NAMES_BLACKLIST).includes(input.name)) {
