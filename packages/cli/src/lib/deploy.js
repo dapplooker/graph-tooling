@@ -9,7 +9,7 @@ const { withSpinner } = require('../command-helpers/spinner')
 const { validateSubgraphName } = require('../command-helpers/subgraph')
 const { filesystem, print, system } = require('gluegun/toolbox')
 const DataSourcesExtractor = require('../command-helpers/data-sources')
-const Protocol = require('../protocols');
+const { default: Protocol } = require('../protocols');
 const { chooseNodeUrl } = require('../command-helpers/node');
 /**
  * subgraphName: Subgraph name
