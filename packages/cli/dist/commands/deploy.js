@@ -46,18 +46,31 @@ const headersFlag = core_1.Flags.custom({
     parse: val => JSON.parse(val),
     default: {},
 });
+const productOptions = ['subgraph-studio', 'hosted-service'];
 class DeployCommand extends core_1.Command {
     async run() {
-        const { args: { 'subgraph-name': subgraphName, 'subgraph-manifest': manifest }, flags: { product: productFlag, studio, 'deploy-key': deployKeyFlag, 'access-token': accessToken, 'version-label': versionLabelFlag, ipfs, headers, node: nodeFlag, 'output-dir': outputDir, 'skip-migrations': skipMigrations, watch, 'debug-fork': debugFork, network, 'network-file': networkFile, }, } = await this.parse(DeployCommand);
+        const { args: { 'subgraph-name': subgraphNameArg, 'subgraph-manifest': manifest }, flags: { product: productFlag, studio, 'deploy-key': deployKeyFlag, 'access-token': accessToken, 'version-label': versionLabelFlag, ipfs, headers, node: nodeFlag, 'output-dir': outputDir, 'skip-migrations': skipMigrations, watch, 'debug-fork': debugFork, network, 'network-file': networkFile, }, } = await this.parse(DeployCommand);
+        const subgraphName = subgraphNameArg ||
+            (await core_1.ux.prompt('What is the subgraph name?', {
+                required: true,
+            }));
         // We are given a node URL, so we prioritize that over the product flag
         const product = nodeFlag
             ? productFlag
             : studio
                 ? 'subgraph-studio'
                 : productFlag ||
-                    (await core_1.ux.prompt('Which product to deploy for?', {
-                        required: true,
-                    }));
+                    (await gluegun_1.prompt
+                        .ask([
+                        {
+                            name: 'product',
+                            message: 'Which product to deploy for?',
+                            required: true,
+                            type: 'select',
+                            choices: productOptions,
+                        },
+                    ])
+                        .then(({ product }) => product));
         try {
             const dataSourcesAndTemplates = await DataSourcesExtractor.fromFilePath(manifest);
             for (const { network } of dataSourcesAndTemplates) {
@@ -216,9 +229,7 @@ $ graph create --node ${node} ${subgraphName}`;
 }
 DeployCommand.description = 'Deploys a subgraph to a Graph node.';
 DeployCommand.args = {
-    'subgraph-name': core_1.Args.string({
-        required: true,
-    }),
+    'subgraph-name': core_1.Args.string({}),
     'subgraph-manifest': core_1.Args.string({
         default: 'subgraph.yaml',
     }),
@@ -229,7 +240,7 @@ DeployCommand.flags = {
     }),
     product: core_1.Flags.string({
         summary: 'Select a product for which to authenticate.',
-        options: ['subgraph-studio', 'hosted-service'],
+        options: productOptions,
     }),
     studio: core_1.Flags.boolean({
         summary: 'Shortcut for "--product subgraph-studio".',
