@@ -172,6 +172,15 @@ export default class SchemaCodeGenerator {
       ),
 
       tsCodegen.staticMethod(
+        'loadInBlock',
+        [tsCodegen.param('id', tsCodegen.namedType(idField.typeName()))],
+        tsCodegen.nullableType(tsCodegen.namedType(entityName)),
+        `
+        return changetype<${entityName} | null>(store.get_in_block('${entityName}', ${idField.tsToString()}))
+        `,
+      ),
+
+      tsCodegen.staticMethod(
         'load',
         [tsCodegen.param('id', tsCodegen.namedType(idField.typeName()))],
         tsCodegen.nullableType(tsCodegen.namedType(entityName)),
@@ -203,8 +212,18 @@ export default class SchemaCodeGenerator {
     const fieldValueType = this._valueTypeFromGraphQl(gqlType);
     const returnType = this._typeFromGraphQl(gqlType);
     const isNullable = returnType instanceof tsCodegen.NullableType;
+    const primitiveDefault =
+      returnType instanceof tsCodegen.NamedType ? returnType.getPrimitiveDefault() : null;
 
-    const getNonNullable = `return ${typesCodegen.valueToAsc('value!', fieldValueType)}`;
+    const getNonNullable = `if (!value || value.kind == ValueKind.NULL) {
+                          ${
+                            primitiveDefault === null
+                              ? "throw new Error('Cannot return null for a required field.')"
+                              : `return ${primitiveDefault}`
+                          }
+                        } else {
+                          return ${typesCodegen.valueToAsc('value', fieldValueType)}
+                        }`;
     const getNullable = `if (!value || value.kind == ValueKind.NULL) {
                           return null
                         } else {
