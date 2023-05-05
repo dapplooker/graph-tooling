@@ -2,19 +2,11 @@ import prettier from 'prettier';
 import { getSubgraphBasename } from '../command-helpers/subgraph';
 import Protocol from '../protocols';
 import ABI from '../protocols/ethereum/abi';
-import { version } from '../version';
 import { generateEventIndexingHandlers } from './mapping';
 import { abiEvents, abiMethods, generateEventType, generateExampleEntityType } from './schema';
 import { generateTestsFiles } from './tests';
 import constant from "../lib/constant";
 import immutable from "immutable";
-
-const GRAPH_CLI_VERSION = process.env.GRAPH_CLI_TESTS
-    ? // JSON.stringify should remove this key, we will install the local
-      // graph-cli for the tests using `npm link` instead of fetching from npm.
-    undefined
-    : // For scaffolding real subgraphs
-    version;
 
 export interface Contract {
     contractAddress: string,
@@ -92,7 +84,7 @@ export default class Scaffold {
                     test: 'graph test',
                 },
                 dependencies: {
-                    '@graphprotocol/graph-cli': GRAPH_CLI_VERSION,
+                    '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?custom/graph-cli",
                     '@graphprotocol/graph-ts': `0.29.1`,
                 },
                 devDependencies: this.protocol.hasEvents() ? { 'matchstick-as': `0.5.0` } : undefined,
