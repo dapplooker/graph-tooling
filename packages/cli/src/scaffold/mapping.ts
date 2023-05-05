@@ -83,6 +83,9 @@ export function handle${event._alias}Event(event: ${event._alias}Event): void {
   entity.gasLimit = event.transaction.gasLimit
   entity.gasPrice = event.transaction.gasPrice
   ${generateEventFieldAssignmentsMap(event, contract.templateContracts).join('\n')}
+    entity.blockNumber = event.block.number
+    entity.blockTimestamp = event.block.timestamp
+    entity.transactionHash = event.transaction.hash
   entity.save()
 }
   `,

@@ -43,7 +43,7 @@ export const mapping = ({ abi, contractName }: { abi: ABI; contractName: string 
     .map(
             event => `
             - event: ${ABI.eventSignature(event)}
-              handler: handle${event.get('_alias')}`,
+              handler: handle${event.get('_alias')}Event`,
     )
     .join('')}
         file: ./src/${contractName}Mapping.ts`;
