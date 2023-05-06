@@ -84,7 +84,7 @@ export default class Scaffold {
                     test: 'graph test',
                 },
                 dependencies: {
-                    '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?custom/graph-cli",
+                    '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?dl-main",
                     '@graphprotocol/graph-ts': `0.29.1`,
                 },
                 devDependencies: this.protocol.hasEvents() ? { 'matchstick-as': `0.5.0` } : undefined,
@@ -105,7 +105,7 @@ export default class Scaffold {
     - kind: ${this.protocol.name}
       name: ${contractName}
       network: ${this.network}
-      source: ${await protocolManifest.source({ contract, contractName, network: this.network, etherscanApikey: this.etherscanApikey})}
+      source: ${await protocolManifest.source({ contract, contractName, network: this.network, etherscanApikey: this.etherscanApikey })}
       mapping: ${protocolManifest.mapping({ abi, contractName })/*{ abi, contractName }*/}`
 
             result.push(r);
@@ -126,16 +126,16 @@ dataSources:
 `,
             { parser: 'yaml' },
         );
-    return yamlContent;
+        return yamlContent;
     }
 
     generateSchema({ abi, contractName }: { abi: { data: immutable.Collection<any, any> }, contractName: string }) {
         const hasEvents = this.protocol.hasEvents()
-        const events = hasEvents? abiEvents(abi).toJS(): []
+        const events = hasEvents ? abiEvents(abi).toJS() : []
 
         return prettier.format(hasEvents ? events.map(
             event => generateEventType(event, this.protocol.name, contractName)).join('\n\n') :
-                generateExampleEntityType(this.protocol, contractName, events),
+            generateExampleEntityType(this.protocol, contractName, events),
             {
                 parser: 'graphql',
             },
