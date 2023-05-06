@@ -157,7 +157,7 @@ const runDeploy = async ({ studio, product = 'hosted-service', subgraphName, nod
         });
     }
     else {
-        let result = await compiler.compile();
+        let result = await compiler.compile({ validate: true });
         if (result === undefined || result === false) {
             // Compilation failed, not deploying.
             process.exitCode = 1;
