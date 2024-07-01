@@ -7,7 +7,7 @@ module.exports = {
 
 
     get etherscanSupportedNetworks() {
-        return ['kovan', 'rinkeby', 'ropsten', 'goerli', 'moonriver', 'moonbeam', 'matic', 'fantom', 'bsc', ''];
+        return ['kovan', 'rinkeby', 'ropsten', 'goerli', 'moonriver', 'moonbeam', 'matic', 'fantom', 'bsc', 'nordek', ''];
     },
 
     get callHandlerSupportedNetworks() {
@@ -21,6 +21,7 @@ module.exports = {
             .set('moonbeam', 'https://api-moonbeam.moonscan.io/api')
             .set('matic', 'https://api.polygonscan.com/api')
             .set('bsc', 'https://api.bscscan.com/api')
-            .set('fantom', 'https://api.ftmscan.com/api');
+            .set('fantom', 'https://api.ftmscan.com/api')
+            .set('nordek', 'https://nordekscan.com/api');
     },
 }
