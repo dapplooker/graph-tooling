@@ -1,7 +1,4 @@
 /* eslint-disable unicorn/no-array-for-each */
-import Schema from '../schema';
-import * as typesCodegen from './types';
-import * as tsCodegen from './typescript';
 import type {
   DefinitionNode,
   FieldDefinitionNode,
@@ -10,6 +7,10 @@ import type {
   ObjectTypeDefinitionNode,
   TypeNode,
 } from 'graphql/language';
+import debug from '../debug';
+import Schema from '../schema';
+import * as typesCodegen from './types';
+import * as tsCodegen from './typescript';
 
 class IdField {
   static BYTES = Symbol('Bytes');
@@ -66,6 +67,8 @@ class IdField {
   }
 }
 
+const schemaCodeGeneratorDebug = debug('graph-cli:SchemaCodeGenerator');
+
 export default class SchemaCodeGenerator {
   constructor(private schema: Schema) {
     this.schema = schema;
@@ -98,10 +101,44 @@ export default class SchemaCodeGenerator {
     return this.schema.ast.definitions
       .map(def => {
         if (this._isEntityTypeDefinition(def)) {
+          schemaCodeGeneratorDebug.extend('generateTypes')(
+            `Generating entity type for ${def.name.value}`,
+          );
           return this._generateEntityType(def);
         }
       })
       .filter(Boolean) as Array<tsCodegen.Class>;
+  }
+
+  generateDerivedLoaders() {
+    // This gets all the interfaces in the schema
+    // We can think of more optimized ways to do this
+    const interfaces = (
+      this.schema.ast.definitions.filter(def =>
+        this._isInterfaceDefinition(def),
+      ) as InterfaceTypeDefinitionNode[]
+    ).map(def => def.name.value);
+
+    const fields = (
+      (
+        this.schema.ast.definitions.filter(def => {
+          return this._isEntityTypeDefinition(def);
+        }) as ObjectTypeDefinitionNode[]
+      )
+        .flatMap((def: ObjectTypeDefinitionNode) => def.fields)
+        .filter(def => this._isDerivedField(def))
+        .filter(def => def?.type !== undefined) as FieldDefinitionNode[]
+    ).map(def => this._getTypeNameForField(def.type));
+    schemaCodeGeneratorDebug.extend('generateDerivedLoaders')(
+      `Generating derived loaders for ${fields}`,
+    );
+
+    return [...new Set(fields)].map(typeName => {
+      // do not support interfaces
+      if (!interfaces.includes(typeName)) {
+        return this._generateDerivedLoader(typeName);
+      }
+    });
   }
 
   _isEntityTypeDefinition(def: DefinitionNode): def is ObjectTypeDefinitionNode {
@@ -111,6 +148,11 @@ export default class SchemaCodeGenerator {
     );
   }
 
+  _isDerivedField(field: FieldDefinitionNode | undefined): boolean {
+    return (
+      field?.directives?.find(directive => directive.name.value === 'derivedFrom') !== undefined
+    );
+  }
   _isInterfaceDefinition(def: DefinitionNode): def is InterfaceTypeDefinitionNode {
     return def.kind === 'InterfaceTypeDefinition';
   }
@@ -138,6 +180,61 @@ export default class SchemaCodeGenerator {
     return klass;
   }
 
+  _generateDerivedLoader(typeName: string): any {
+    // <field>Loader
+    const klass = tsCodegen.klass(`${typeName}Loader`, { export: true, extends: 'Entity' });
+
+    klass.addMember(tsCodegen.klassMember('_entity', 'string'));
+    klass.addMember(tsCodegen.klassMember('_field', 'string'));
+    klass.addMember(tsCodegen.klassMember('_id', 'string'));
+    // Generate and add a constructor
+    klass.addMethod(
+      tsCodegen.method(
+        'constructor',
+        [
+          tsCodegen.param('entity', 'string'),
+          tsCodegen.param('id', 'string'),
+          tsCodegen.param('field', 'string'),
+        ],
+        undefined,
+        `
+      super();
+      this._entity = entity;
+      this._id = id;
+      this._field = field;
+`,
+      ),
+    );
+
+    // Generate load() method for the Loader
+    klass.addMethod(
+      tsCodegen.method(
+        'load',
+        [],
+        `${typeName}[]`,
+        `
+  let value = store.loadRelated(this._entity, this._id, this._field);
+  return changetype<${typeName}[]>(value);
+  `,
+      ),
+    );
+
+    return klass;
+  }
+
+  _getTypeNameForField(gqlType: TypeNode): string {
+    if (gqlType.kind === 'NonNullType') {
+      return this._getTypeNameForField(gqlType.type);
+    }
+    if (gqlType.kind === 'ListType') {
+      return this._getTypeNameForField(gqlType.type);
+    }
+    if (gqlType.kind === 'NamedType') {
+      return (gqlType as NamedTypeNode).name.value;
+    }
+
+    throw new Error(`Unknown type kind: ${gqlType}`);
+  }
   _generateConstructor(_entityName: string, fields: readonly FieldDefinitionNode[] | undefined) {
     const idField = IdField.fromFields(fields);
     return tsCodegen.method(
@@ -207,7 +304,16 @@ export default class SchemaCodeGenerator {
   }
 
   _generateEntityFieldGetter(_entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode) {
+    const isDerivedField = this._isDerivedField(fieldDef);
     const name = fieldDef.name.value;
+
+    if (isDerivedField) {
+      schemaCodeGeneratorDebug.extend('_generateEntityFieldGetter')(
+        `Generating derived field getter for ${name}`,
+      );
+      return this._generateDerivedFieldGetter(_entityDef, fieldDef);
+    }
+
     const gqlType = fieldDef.type;
     const fieldValueType = this._valueTypeFromGraphQl(gqlType);
     const returnType = this._typeFromGraphQl(gqlType);
@@ -240,7 +346,95 @@ export default class SchemaCodeGenerator {
       `,
     );
   }
+  _generateDerivedFieldGetter(entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode) {
+    const entityName = entityDef.name.value;
+    const name = fieldDef.name.value;
+    schemaCodeGeneratorDebug.extend('_generateDerivedFieldGetter')(
+      `Generating derived field '${name}' getter for Entity '${entityName}'`,
+    );
+    const gqlType = fieldDef.type;
+    schemaCodeGeneratorDebug.extend('_generateDerivedFieldGetter')(
+      "Derived field's type: %M",
+      gqlType,
+    );
+    const returnType = this._returnTypeForDervied(gqlType);
+    schemaCodeGeneratorDebug.extend('_generateDerivedFieldGetter')(
+      "Derived field's return type: %M",
+      returnType,
+    );
+    const obj = this.schema.ast.definitions.find(def => {
+      if (def.kind === 'ObjectTypeDefinition') {
+        const defobj = def as ObjectTypeDefinitionNode;
+        return defobj.name.value == this._baseType(gqlType);
+      }
+      return false;
+    }) as ObjectTypeDefinitionNode;
 
+    if (!obj) {
+      schemaCodeGeneratorDebug.extend('_generateDerivedFieldGetter')(
+        "Could not find object type definition for derived field's base type: %M",
+        obj,
+      );
+      return null;
+    }
+
+    schemaCodeGeneratorDebug.extend('_generateDerivedFieldGetter')(
+      "Found object type definition for derived field's base type: %M",
+      obj,
+    );
+
+    const idf = IdField.fromTypeDef(entityDef);
+    const idIsBytes = idf.typeName() == 'Bytes';
+    const toValueString = idIsBytes ? '.toBytes().toHexString()' : '.toString()';
+
+    return tsCodegen.method(
+      `get ${name}`,
+      [],
+      returnType,
+      `
+        return new ${returnType}('${entityName}', this.get('id')!${toValueString}, '${name}')
+      `,
+    );
+  }
+
+  _returnTypeForDervied(gqlType: TypeNode): tsCodegen.NamedType {
+    if (gqlType.kind === 'NonNullType') {
+      return this._returnTypeForDervied(gqlType.type);
+    }
+    if (gqlType.kind === 'ListType') {
+      return this._returnTypeForDervied(gqlType.type);
+    }
+    const type = tsCodegen.namedType(gqlType.name.value + 'Loader');
+    return type;
+  }
+
+  _generatedEntityDerivedFieldGetter(
+    _entityDef: ObjectTypeDefinitionNode,
+    fieldDef: FieldDefinitionNode,
+  ) {
+    const name = fieldDef.name.value;
+    const gqlType = fieldDef.type;
+    const fieldValueType = this._valueTypeFromGraphQl(gqlType);
+    const returnType = this._typeFromGraphQl(gqlType);
+    const isNullable = returnType instanceof tsCodegen.NullableType;
+
+    const getNonNullable = `return ${typesCodegen.valueToAsc('value!', fieldValueType)}`;
+    const getNullable = `if (!value || value.kind == ValueKind.NULL) {
+                          return null
+                        } else {
+                          return ${typesCodegen.valueToAsc('value', fieldValueType)}
+                        }`;
+
+    return tsCodegen.method(
+      `get ${name}`,
+      [],
+      returnType,
+      `
+       let value = this.get('${name}')
+       ${isNullable ? getNullable : getNonNullable}
+      `,
+    );
+  }
   _generateEntityFieldSetter(_entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode) {
     const name = fieldDef.name.value;
     const isDerivedField = !!fieldDef.directives?.find(
@@ -274,9 +468,9 @@ Suggestion: add an '!' to the member type of the List, change from '[${baseType}
         this.unset('${name}')
       } else {
         this.set('${name}', ${typesCodegen.valueFromAsc(
-      `<${paramTypeString}>value`,
-      fieldValueType,
-    )})
+          `<${paramTypeString}>value`,
+          fieldValueType,
+        )})
       }
     `;
 
