@@ -167,9 +167,9 @@ dataSources:
 
     return await prettier.format(
       hasEvents ? events
-        .map((event: any) => generateEventType(event, this.protocol.name, this.contractName))
+        .map((event: any) => generateEventType(event, this.protocol.name, contractName))
         .join('\n\n')
-        : generateExampleEntityType(this.protocol, this.contractName, events),
+        : generateExampleEntityType(this.protocol, contractName, events),
       {
         parser: 'graphql',
         trailingComma: 'none',
@@ -267,47 +267,47 @@ dataSources:
     }
 
     const mappingMap = {};
-        const abiMap = {};
-        const fromContracts: any[] = this.fromContracts ?? [];
-        for (let i = 0; i < fromContracts.length; i++) {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            mappingMap[`${fromContracts[i].contractName}Mapping.ts`] = this.generateMapping({
-                contract: fromContracts[i],
-                isTemplateContract: false,
-                indexCallHandler: this.shouldIndexCallHandler(this.network),
-            });
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            abiMap[`${fromContracts[i].contractName}.json`] = this.protocol.hasEvents() ? prettier.format(JSON.stringify(fromContracts[i].contractAbi.data), {
-                parser: 'json',
-            }) : '';
+    const abiMap = {};
+    const fromContracts: any[] = this.fromContracts ?? [];
+    for (let i = 0; i < fromContracts.length; i++) {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      mappingMap[`${fromContracts[i].contractName}Mapping.ts`] = this.generateMapping({
+        contract: fromContracts[i],
+        isTemplateContract: false,
+        indexCallHandler: this.shouldIndexCallHandler(this.network),
+      });
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      abiMap[`${fromContracts[i].contractName}.json`] = this.protocol.hasEvents() ? prettier.format(JSON.stringify(fromContracts[i].contractAbi.data), {
+        parser: 'json',
+      }) : '';
 
-            const templateContracts = fromContracts[i].templateContracts;
-            for (let j = 0; j < templateContracts.length; j++) {
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                mappingMap[`${templateContracts[j].contractName}Mapping.ts`] = this.generateMapping({
-                    contract: templateContracts[j],
-                    isTemplateContract: true,
-                    indexCallHandler: this.shouldIndexCallHandler(this.network),
-                });
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                abiMap[`${templateContracts[j].contractName}.json`] = prettier.format(JSON.stringify(templateContracts[j].contractAbi.data), {
-                    parser: 'json',
-                });
-            }
-        }
+      const templateContracts = fromContracts[i].templateContracts;
+      for (let j = 0; j < templateContracts.length; j++) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        mappingMap[`${templateContracts[j].contractName}Mapping.ts`] = this.generateMapping({
+          contract: templateContracts[j],
+          isTemplateContract: true,
+          indexCallHandler: this.shouldIndexCallHandler(this.network),
+        });
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        abiMap[`${templateContracts[j].contractName}.json`] = prettier.format(JSON.stringify(templateContracts[j].contractAbi.data), {
+          parser: 'json',
+        });
+      }
+    }
 
-        return {
-            'package.json': await this.generatePackageJson(),
-            'subgraph.yaml': await this.generateManifest(),
-            'schema.graphql': await this.generateSchemas(),
-            'tsconfig.json': await this.generateTsConfig(),
-            src: mappingMap,
-            abis: abiMap,
-            tests: this.generateTests(),
-        };
+    return {
+      'package.json': await this.generatePackageJson(),
+      'subgraph.yaml': await this.generateManifest(),
+      'schema.graphql': await this.generateSchemas(),
+      'tsconfig.json': await this.generateTsConfig(),
+      src: mappingMap,
+      abis: abiMap,
+      tests: this.generateTests(),
+    };
   }
 }
