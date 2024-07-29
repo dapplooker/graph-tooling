@@ -90,7 +90,7 @@ export default class Scaffold {
           test: 'graph test',
         },
         dependencies: {
-          '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?dl-main",
+          '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?cli-upgrade",
           '@graphprotocol/graph-ts': `0.32.0`,
         },
         devDependencies: this.protocol.hasEvents() ? { 'matchstick-as': `0.5.0` } : undefined,
@@ -117,7 +117,7 @@ export default class Scaffold {
           test: 'graph test',
         },
         dependencies: {
-          '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?dl-main",
+          '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?cli-upgrade",
         },
       }),
       { parser: 'json' },
