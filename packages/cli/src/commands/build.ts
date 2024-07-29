@@ -1,5 +1,5 @@
-import { Args, Command, Flags } from '@oclif/core';
 import { filesystem } from 'gluegun';
+import { Args, Command, Flags } from '@oclif/core';
 import { createCompiler } from '../command-helpers/compiler';
 import * as DataSourcesExtractor from '../command-helpers/data-sources';
 import { updateSubgraphNetwork } from '../command-helpers/network';
@@ -106,7 +106,7 @@ export default class BuildCommand extends Command {
     if (watch) {
       await compiler.watchAndCompile();
     } else {
-      const result = await compiler.compile({ validate: false });
+      const result = await compiler.compile({ validate: true });
       if (result === false) {
         this.exit(1);
       }

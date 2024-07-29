@@ -2,6 +2,7 @@
 import './common/eager_offset';
 import { ByteArray, Bytes, Entity } from './common/collections';
 import { Value } from './common/value';
+
 // Arweave support
 export * from './chain/arweave';
 // Ethereum support
@@ -10,6 +11,8 @@ export * from './chain/ethereum';
 export * from './chain/near';
 // Cosmos support
 export * from './chain/cosmos';
+// Starknet support
+export * from './chain/starknet';
 // Regular re-exports
 export * from './common/collections';
 export * from './common/conversion';
@@ -26,6 +29,7 @@ export declare namespace store {
   /** If the entity was not created in the block, this function will return null. */
   // Matches the host function https://github.com/graphprotocol/graph-node/blob/9f4a1821146b18f6f49165305e9a8c0795120fad/runtime/wasm/src/module/mod.rs#L1091-L1099
   function get_in_block(entity: string, id: string): Entity | null;
+  function loadRelated(entity: string, id: string, field: string): Array<Entity>;
   function set(entity: string, id: string, data: Entity): void;
   function remove(entity: string, id: string): void;
 }

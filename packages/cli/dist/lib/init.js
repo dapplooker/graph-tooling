@@ -33,19 +33,20 @@ const AbiCodeGenerator = require("../protocols/ethereum/codegen/abi");
  * fromExample: Boolean (optional) [default: false], Creates a scaffold based on an example subgraph
  */
 const runInit = async ({ subgraphName, directory, network, fromContracts, etherscanApikey, indexEvents = false, allowSimpleName = false, fromExample = false, product = "hosted-service", protocol = "ethereum", node = "https://api.thegraph.com/deploy/", studio }) => {
-    console.log(`
-SubgraphName: ${subgraphName}
-Directory:${directory}
-Network:${network}
-Contracts:${JSON.stringify(fromContracts)}
-etherscanApikey:${etherscanApikey}
-IndexEvents:${indexEvents}
-AllowSimpleName:${allowSimpleName}
-fromExample:${fromExample}
-Product:${product}
-Protocol:${protocol}
-Node:${node}
-Studio:${studio}`);
+    console.table([{
+        SubgraphName: subgraphName,
+        Directory: directory,
+        Network: network,
+        Contracts: JSON.stringify(fromContracts),
+        EtherscanApikey: etherscanApikey,
+        IndexEvents: indexEvents,
+        AllowSimpleName: allowSimpleName,
+        FromExample: fromExample,
+        Product: product,
+        Protocol: protocol,
+        Node: node,
+        Studio: studio
+    }]);
     if (fromContracts && fromExample) {
         toolbox.print.error(`Only one of --from-example and --from-contract can be used at a time.`);
         process.exitCode = 1;

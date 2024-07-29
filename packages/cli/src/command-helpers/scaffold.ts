@@ -30,8 +30,12 @@ export const generateDataSource = async (
     network,
     'source',
     yaml.parse(
-      prettier.format(
-        protocolManifest.source({ contract: contractAddress, contractName, startBlock }),
+      await prettier.format(
+        protocolManifest.source({
+          contract: contractAddress,
+          contractName,
+          startBlock,
+        }),
         {
           parser: 'yaml',
         },
@@ -39,7 +43,7 @@ export const generateDataSource = async (
     ),
     'mapping',
     yaml.parse(
-      prettier.format(protocolManifest.mapping({ abi, contractName }), {
+      await prettier.format(protocolManifest.mapping({ abi, contractName }), {
         parser: 'yaml',
       }),
     ),
@@ -59,6 +63,7 @@ export const generateScaffold = async (
     contractName = 'Contract',
     startBlock,
     node,
+    spkgPath,
   }: {
     protocolInstance: Protocol;
     abi: ABI;
@@ -71,6 +76,7 @@ export const generateScaffold = async (
     contractName?: string;
     startBlock?: string;
     node?: string;
+    spkgPath?: string;
   },
   spinner: Spinner,
 ) => {
@@ -88,9 +94,10 @@ export const generateScaffold = async (
     fromContracts,
     etherscanApikey,
     node,
+    spkgPath,
   });
 
-  return scaffold.generate();
+  return await scaffold.generate();
 };
 
 const writeScaffoldDirectory = async (scaffold: any, directory: string, spinner: Spinner) => {
@@ -120,7 +127,7 @@ export const writeScaffold = async (scaffold: any, directory: string, spinner: S
 };
 
 export const writeABI = async (abi: ABI, contractName: string) => {
-  const data = prettier.format(JSON.stringify(abi.data), {
+  const data = await prettier.format(JSON.stringify(abi.data), {
     parser: 'json',
   });
 
@@ -140,7 +147,7 @@ export const writeSchema = async (
         .toJS()
     : [];
 
-  const data = prettier.format(
+  const data = await prettier.format(
     events.map(event => generateEventType(event, protocol.name, contractName)).join('\n\n'),
     {
       parser: 'graphql',
@@ -161,17 +168,12 @@ export const writeSchema = async (
 //         .filter(event => !entities.includes(event.get('name')))
 //         .toJS()
 //     : [];
-//
-//   const mapping = prettier.format(generateEventIndexingHandlers({
-//     events,
-//     contractName,
-//     contract: ,
-//     isTemplateContract: false,
-//     methods: [] }), {
+
+//   const mapping = await prettier.format(generateEventIndexingHandlers(events, contractName), {
 //     parser: 'typescript',
 //     semi: false,
 //   });
-//
+
 //   await fs.writeFile(`./src/${strings.kebabCase(contractName)}.ts`, mapping, 'utf-8');
 // };
 
@@ -183,7 +185,7 @@ export const writeTestsFiles = async (abi: ABI, protocol: Protocol, contractName
     // If a contract is added to a subgraph that has no tests folder
     await fs.ensureDir('./tests/');
 
-    const testsFiles = generateTestsFiles(contractName, events, true);
+    const testsFiles = await generateTestsFiles(contractName, events, true);
 
     for (const [fileName, content] of Object.entries(testsFiles)) {
       await fs.writeFile(`./tests/${fileName}`, content, 'utf-8');
