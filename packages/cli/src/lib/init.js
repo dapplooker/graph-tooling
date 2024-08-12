@@ -9,11 +9,11 @@ const {
     getSubgraphBasename,
     validateSubgraphName
 } = require("../command-helpers/subgraph");
-const {withSpinner, step} = require("../command-helpers/spinner");
-const {generateScaffold, writeScaffold} = require("../command-helpers/scaffold");
-const {abiEvents} = require("../scaffold/schema");
+const { withSpinner, step } = require("../command-helpers/spinner");
+const { generateScaffold, writeScaffold } = require("../command-helpers/scaffold");
+const { abiEvents } = require("../scaffold/schema");
 const ABI = require("../abi");
-const {default: Protocol} = require("../protocols");
+const { default: Protocol } = require("../protocols");
 const AbiCodeGenerator = require("../protocols/ethereum/codegen/abi");
 
 /**
@@ -37,33 +37,33 @@ const AbiCodeGenerator = require("../protocols/ethereum/codegen/abi");
  * fromExample: Boolean (optional) [default: false], Creates a scaffold based on an example subgraph
  */
 const runInit = async ({
-                           subgraphName,
-                           directory,
-                           network,
-                           fromContracts,
-                           etherscanApikey,
-                           indexEvents = false,
-                           allowSimpleName = false,
-                           fromExample = false,
-                           product = "hosted-service",
-                           protocol = "ethereum",
-                           node = "https://api.thegraph.com/deploy/",
-                           studio
-                       }) => {
+    subgraphName,
+    directory,
+    network,
+    fromContracts,
+    etherscanApikey,
+    indexEvents = false,
+    allowSimpleName = false,
+    fromExample = false,
+    product = "hosted-service",
+    protocol = "ethereum",
+    node = "https://api.thegraph.com/deploy/",
+    studio
+}) => {
     console.log(`
-SubgraphName: ${subgraphName}
-Directory:${directory}
-Network:${network}
-Contracts:${JSON.stringify(fromContracts)}
-etherscanApikey:${etherscanApikey}
-IndexEvents:${indexEvents}
-AllowSimpleName:${allowSimpleName}
-fromExample:${fromExample}
-Product:${product}
-Protocol:${protocol}
-Node:${node}
-Studio:${studio}`
-    );
+        SubgraphName: ${subgraphName}
+        Directory: ${directory}
+        Network: ${network}
+        Contracts: ${JSON.stringify(fromContracts)}
+        EtherscanApikey: ${etherscanApikey}
+        IndexEvents: ${indexEvents}
+        AllowSimpleName: ${allowSimpleName}
+        FromExample: ${fromExample}
+        Product: ${product}
+        Protocol: ${protocol}
+        Node: ${node}
+        Studio: ${studio}
+    `);
 
     if (fromContracts && fromExample) {
         toolbox.print.error(`Only one of --from-example and --from-contract can be used at a time.`);
@@ -103,8 +103,8 @@ Studio:${studio}`
     if (fromExample && subgraphName && directory) {
         return await initSubgraphFromExample(
             toolbox,
-            {allowSimpleName, directory, subgraphName},
-            {commands}
+            { allowSimpleName, directory, subgraphName },
+            { commands }
         );
     }
 
@@ -170,7 +170,7 @@ Studio:${studio}`
                 product,
                 protocolInstance
             },
-            {commands}
+            { commands }
         );
     }
 
@@ -236,10 +236,10 @@ const loadAbiFromFile = async filename => {
 };
 
 
-const revalidateSubgraphName = (toolbox, subgraphName, {allowSimpleName}) => {
+const revalidateSubgraphName = (toolbox, subgraphName, { allowSimpleName }) => {
     // Fail if the subgraph name is invalid
     try {
-        validateSubgraphName(subgraphName, {allowSimpleName});
+        validateSubgraphName(subgraphName, { allowSimpleName });
         return true;
     } catch (e) {
         toolbox.print.error(`${e.message}
@@ -262,8 +262,8 @@ const initRepository = async (toolbox, directory) =>
             if (toolbox.filesystem.exists(gitDir)) {
                 await toolbox.filesystem.remove(gitDir);
             }
-            await toolbox.system.run("git init", {cwd: directory});
-            await toolbox.system.run("git add --all", {cwd: directory});
+            await toolbox.system.run("git init", { cwd: directory });
+            await toolbox.system.run("git add --all", { cwd: directory });
             await toolbox.system.run("git commit -m \"Initial commit\"", {
                 cwd: directory
             });
@@ -277,7 +277,7 @@ const installDependencies = async (toolbox, directory, installCommand) =>
         `Failed to install dependencies`,
         `Warnings while installing dependencies`,
         async () => {
-            await toolbox.system.run(installCommand, {cwd: directory});
+            await toolbox.system.run(installCommand, { cwd: directory });
             return true;
         }
     );
@@ -288,13 +288,13 @@ const runCodegen = async (toolbox, directory, codegenCommand) =>
         `Failed to generate code from ABI and GraphQL schema`,
         `Warnings while generating code from ABI and GraphQL schema`,
         async () => {
-            await toolbox.system.run(codegenCommand, {cwd: directory});
+            await toolbox.system.run(codegenCommand, { cwd: directory });
             return true;
         }
     );
 
-const printNextSteps = (toolbox, {subgraphName, directory}, {commands}) => {
-    const {print} = toolbox;
+const printNextSteps = (toolbox, { subgraphName, directory }, { commands }) => {
+    const { print } = toolbox;
 
     const relativeDir = path.relative(process.cwd(), directory);
 
@@ -318,13 +318,13 @@ Make sure to visit the documentation on https://thegraph.com/docs/ for further i
 
 const initSubgraphFromExample = async (
     toolbox,
-    {allowSimpleName, subgraphName, directory},
-    {commands}
+    { allowSimpleName, subgraphName, directory },
+    { commands }
 ) => {
-    const {filesystem, print, system} = toolbox;
+    const { filesystem, print, system } = toolbox;
 
     // Fail if the subgraph name is invalid
-    if (!revalidateSubgraphName(toolbox, subgraphName, {allowSimpleName})) {
+    if (!revalidateSubgraphName(toolbox, subgraphName, { allowSimpleName })) {
         process.exitCode = 1;
         return;
     }
@@ -372,7 +372,7 @@ const initSubgraphFromExample = async (
                 delete pkgJson["repository"];
 
                 // Write package.json
-                await filesystem.write(pkgJsonFilename, pkgJson, {jsonIndent: 2});
+                await filesystem.write(pkgJsonFilename, pkgJson, { jsonIndent: 2 });
                 return true;
             } catch (e) {
                 print.error(`Failed to preconfigure the subgraph: ${e}`);
@@ -407,7 +407,7 @@ const initSubgraphFromExample = async (
         return;
     }
 
-    printNextSteps(toolbox, {subgraphName, directory}, {commands});
+    printNextSteps(toolbox, { subgraphName, directory }, { commands });
 
     return true;
 };
@@ -427,12 +427,12 @@ const initSubgraphFromContract = async (
         studio,
         product
     },
-    {commands}
+    { commands }
 ) => {
-    const {print} = toolbox;
+    const { print } = toolbox;
 
     // Fail if the subgraph name is invalid
-    if (!revalidateSubgraphName(toolbox, subgraphName, {allowSimpleName})) {
+    if (!revalidateSubgraphName(toolbox, subgraphName, { allowSimpleName })) {
         process.exitCode = 1;
         return;
     }
@@ -457,7 +457,7 @@ const initSubgraphFromContract = async (
     }
 
     // Scaffold subgraph from ABI
-    print.info("Initializing withSpinner........");
+    print.info("Start initializing...");
     const scaffold = await withSpinner(
         `Create subgraph scaffold`,
         `Failed to create subgraph scaffold`,
@@ -499,8 +499,8 @@ const initSubgraphFromContract = async (
     print.info("Installing dependencies.");
     const installed = await installDependencies(toolbox, directory, commands.install);
     if (installed !== true) {
-    	process.exitCode = 1;
-    	return;
+        process.exitCode = 1;
+        return;
     }
 
     // Run code-generation
@@ -510,7 +510,7 @@ const initSubgraphFromContract = async (
         return;
     }
 
-    printNextSteps(toolbox, {subgraphName, directory}, {commands});
+    printNextSteps(toolbox, { subgraphName, directory }, { commands });
 
     return true;
 };

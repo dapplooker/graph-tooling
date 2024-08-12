@@ -2,7 +2,6 @@ import prettier from 'prettier';
 import { getSubgraphBasename } from '../command-helpers/subgraph';
 import Protocol from '../protocols';
 import ABI from '../protocols/ethereum/abi';
-import { version } from '../version';
 import { getDockerFile } from './get-docker-file';
 import { getGitIgnore } from './get-git-ignore';
 import { generateEventIndexingHandlers } from './mapping';
@@ -65,7 +64,6 @@ export default class Scaffold {
 
   shouldIndexCallHandler = (network: string) => {
     // eslint-disable-next-line no-console
-    console.log(`shouldIndexCallHandler network: ${network}`);
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     return constant.callHandlerSupportedNetworks.includes(network);
@@ -177,14 +175,14 @@ dataSources:
     );
   }
 
-  generateSchemas() {
+  async generateSchemas() {
     const schema: string[] = []
     const fromContracts: Contract[] = this.fromContracts ?? [];
     for (let i = 0; i < fromContracts.length; i++) {
       const fromContract: Contract = fromContracts[i]
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      schema.push(this.generateSchema({ abi: fromContract.contractAbi, contractName: fromContract.contractName }))
+      schema.push(await this.generateSchema({ abi: fromContract.contractAbi, contractName: fromContract.contractName }))
     }
     return schema.join('\n')
   }
@@ -272,7 +270,7 @@ dataSources:
     for (let i = 0; i < fromContracts.length; i++) {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      mappingMap[`${fromContracts[i].contractName}Mapping.ts`] = this.generateMapping({
+      mappingMap[`${fromContracts[i].contractName}Mapping.ts`] = await this.generateMapping({
         contract: fromContracts[i],
         isTemplateContract: false,
         indexCallHandler: this.shouldIndexCallHandler(this.network),
@@ -287,7 +285,7 @@ dataSources:
       for (let j = 0; j < templateContracts.length; j++) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        mappingMap[`${templateContracts[j].contractName}Mapping.ts`] = this.generateMapping({
+        mappingMap[`${templateContracts[j].contractName}Mapping.ts`] = await this.generateMapping({
           contract: templateContracts[j],
           isTemplateContract: true,
           indexCallHandler: this.shouldIndexCallHandler(this.network),
@@ -307,7 +305,7 @@ dataSources:
       'tsconfig.json': await this.generateTsConfig(),
       src: mappingMap,
       abis: abiMap,
-      tests: this.generateTests(),
+      // tests: this.generateTests(),
     };
   }
 }
