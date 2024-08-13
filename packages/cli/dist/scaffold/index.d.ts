@@ -17,6 +17,7 @@ export interface ScaffoldOptions {
     startBlock?: string;
     subgraphName?: string;
     node?: string;
+    spkgPath?: string;
     fromContracts: any[] | undefined;
     etherscanApikey: string | undefined;
 }
@@ -30,11 +31,13 @@ export default class Scaffold {
     subgraphName?: string;
     node?: string;
     startBlock?: string;
+    spkgPath?: string;
     fromContracts: any[] | undefined;
     etherscanApikey: string | undefined;
     constructor(options: ScaffoldOptions);
     shouldIndexCallHandler: (network: string) => boolean;
-    generatePackageJson(): string;
+    generatePackageJson(): Promise<string>;
+    generatePackageJsonForSubstreams(): Promise<string>;
     generateDataSource(): Promise<string>;
     generateManifest(): Promise<string>;
     generateSchema({ abi, contractName }: {
@@ -42,26 +45,37 @@ export default class Scaffold {
             data: immutable.Collection<any, any>;
         };
         contractName: string;
-    }): string;
-    generateSchemas(): string;
-    generateTsConfig(): string;
+    }): Promise<string>;
+    generateSchemas(): Promise<string>;
+    generateTsConfig(): Promise<string>;
+    generateDockerFileConfig(): Promise<string>;
+    generateGitIgnoreFile(): string;
     generateMapping({ indexCallHandler, contract, isTemplateContract }: {
         indexCallHandler: boolean;
         contract: any;
         isTemplateContract: boolean;
-    }): string;
-    generateABIs(): {
+    }): Promise<string>;
+    generateABIs(): Promise<{
         [x: string]: string;
-    } | undefined;
-    generateTests(): {
+    } | undefined>;
+    generateTests(): Promise<{
         [x: string]: string;
-    } | undefined;
+    } | undefined>;
     generate(): Promise<{
+        'subgraph.yaml': string;
+        'schema.graphql': string;
+        'package.json': string;
+        '.gitignore': string;
+        'tsconfig.json'?: undefined;
+        src?: undefined;
+        abis?: undefined;
+    } | {
         'package.json': string;
         'subgraph.yaml': string;
         'schema.graphql': string;
         'tsconfig.json': string;
         src: {};
         abis: {};
+        '.gitignore'?: undefined;
     }>;
 }

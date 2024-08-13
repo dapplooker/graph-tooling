@@ -49,8 +49,9 @@ const buildCombinedWarning = (filename, warnings) => warnings.size > 0
     : null;
 class Subgraph {
     static async validate(data, protocol, { resolveFile }) {
-        subgraphDebug(`Validating Subgraph with protocol "%s"`, protocol);
+        subgraphDebug.extend('validate')('Validating Subgraph with protocol %M', protocol);
         if (protocol.name == null) {
+            subgraphDebug.extend('validate')('Protocol has no name, skipping validation');
             return immutable_1.default.fromJS([
                 {
                     path: [],
@@ -59,20 +60,27 @@ class Subgraph {
             ]);
         }
         // Parse the default subgraph schema
-        const schema = graphql.parse(await fs_extra_1.default.readFile(path_1.default.join(__dirname, 'protocols', protocol.name, `manifest.graphql`), 'utf-8'));
+        const schema = graphql.parse(await fs_extra_1.default.readFile(path_1.default.join(__dirname, 'protocols', 
+        // TODO: substreams/triggers is a special case, should be handled better
+        protocol.name === 'substreams/triggers' ? 'substreams' : protocol.name, `manifest.graphql`), 'utf-8'));
         // Obtain the root `SubgraphManifest` type from the schema
         const rootType = schema.definitions.find(definition => {
             // @ts-expect-error TODO: name field does not exist on definition, really?
             return definition.name.value === 'SubgraphManifest';
         });
         // Validate the subgraph manifest using this schema
-        return validation.validateManifest(data, rootType, schema, protocol, { resolveFile });
+        return validation.validateManifest(data, rootType, schema, protocol, {
+            resolveFile,
+        });
     }
     static validateSchema(manifest, { resolveFile }) {
+        subgraphDebug.extend('validate')('Validating schema in manifest');
         const filename = resolveFile(manifest.getIn(['schema', 'file']));
+        subgraphDebug.extend('validate')('Loaded schema from %s', filename);
         const validationErrors = validation.validateSchema(filename);
         let errors;
         if (validationErrors.size > 0) {
+            subgraphDebug.extend('validate')('Schema validation failed for %s', filename);
             errors = validationErrors.groupBy(error => error.get('entity')).sort();
             const msg = errors.reduce((msg, errors, entity) => {
                 errors = errors.groupBy((error) => error.get('directive'));
@@ -94,8 +102,11 @@ class Subgraph {
         }
     }
     static validateRepository(manifest) {
+        subgraphDebug.extend('validate')('Validating repository in manifest');
         const repository = manifest.get('repository');
-        return /^https:\/\/github\.com\/graphprotocol\/example-subgraphs?$/.test(repository)
+        return /^https:\/\/github\.com\/graphprotocol\/graph-tooling?$/.test(repository) ||
+            // For legacy reasons, we should error on example subgraphs
+            /^https:\/\/github\.com\/graphprotocol\/example-subgraphs?$/.test(repository)
             ? immutable_1.default.List().push(immutable_1.default.fromJS({
                 path: ['repository'],
                 message: `\
@@ -105,6 +116,7 @@ Please replace it with a link to your subgraph source code.`,
             : immutable_1.default.List();
     }
     static validateDescription(manifest) {
+        subgraphDebug.extend('validate')('Validating description in manifest');
         // TODO: Maybe implement this in the future for each protocol example description
         return manifest.get('description', '').startsWith('Gravatar for ')
             ? immutable_1.default.List().push(immutable_1.default.fromJS({
@@ -116,6 +128,7 @@ Please update it to tell users more about your subgraph.`,
             : immutable_1.default.List();
     }
     static validateHandlers(manifest, protocol, protocolSubgraph) {
+        subgraphDebug.extend('validate')('Validating handlers for protocol %s', protocol?.name);
         return manifest
             .get('dataSources')
             .filter((dataSource) => protocol.isValidKindName(dataSource.get('kind')))
@@ -123,7 +136,7 @@ Please update it to tell users more about your subgraph.`,
             const path = ['dataSources', dataSourceIndex, 'mapping'];
             const mapping = dataSource.get('mapping');
             const handlerTypes = protocolSubgraph.handlerTypes();
-            subgraphDebug('Validating dataSource "%s" handlers with %d handlers types defined for protocol', dataSource.get('name'), handlerTypes.size);
+            subgraphDebug.extend('validate')('Validating dataSource "%s" handlers with %d handlers types defined for protocol', dataSource.get('name'), handlerTypes.size);
             if (handlerTypes.size == 0) {
                 return errors;
             }
@@ -142,13 +155,16 @@ At least one such handler must be defined.`,
         }, immutable_1.default.List());
     }
     static validateContractValues(manifest, protocol) {
+        subgraphDebug.extend('validate')('Validating contract values for protocol %s', protocol?.name);
         if (!protocol.hasContract()) {
+            subgraphDebug.extend('validate')('Protocol has no contract, skipping validation');
             return immutable_1.default.List();
         }
         return validation.validateContractValues(manifest, protocol);
     }
     // Validate that data source names are unique, so they don't overwrite each other.
     static validateUniqueDataSourceNames(manifest) {
+        subgraphDebug.extend('validate')('Validating that data source names are unique');
         const names = [];
         return manifest
             .get('dataSources')
@@ -156,6 +172,7 @@ At least one such handler must be defined.`,
             const path = ['dataSources', dataSourceIndex, 'name'];
             const name = dataSource.get('name');
             if (names.includes(name)) {
+                subgraphDebug.extend('validate')("Found duplicate data source name '%s', adding error");
                 errors = errors.push(immutable_1.default.fromJS({
                     path,
                     message: `\
@@ -167,6 +184,7 @@ More than one data source named '${name}', data source names must be unique.`,
         }, immutable_1.default.List());
     }
     static validateUniqueTemplateNames(manifest) {
+        subgraphDebug.extend('validate')('Validating that template names are unique');
         const names = [];
         return manifest
             .get('templates', immutable_1.default.List())
@@ -174,6 +192,7 @@ More than one data source named '${name}', data source names must be unique.`,
             const path = ['templates', templateIndex, 'name'];
             const name = template.get('name');
             if (names.includes(name)) {
+                subgraphDebug.extend('validate')("Found duplicate template name '%s', adding error");
                 errors = errors.push(immutable_1.default.fromJS({
                     path,
                     message: `\
@@ -200,21 +219,30 @@ More than one template named '${name}', template names must be unique.`,
             data = require(path_1.default.resolve(filename));
         }
         else {
+            subgraphDebug('Loading manifest from %s', filename);
             const raw_data = await fs_extra_1.default.readFile(filename, 'utf-8');
+            subgraphDebug('Checking for file data sources in %s', filename);
             has_file_data_sources = raw_data.includes('kind: file');
+            subgraphDebug('Parsing manifest from %s', filename);
             data = yaml_1.default.parse(raw_data);
         }
         // Helper to resolve files relative to the subgraph manifest
         const resolveFile = maybeRelativeFile => path_1.default.resolve(path_1.default.dirname(filename), maybeRelativeFile);
         // TODO: Validation for file data sources
         if (!has_file_data_sources) {
-            const manifestErrors = await Subgraph.validate(data, protocol, { resolveFile });
+            subgraphDebug('Validating manifest from %s', filename);
+            const manifestErrors = await Subgraph.validate(data, protocol, {
+                resolveFile,
+            });
             if (manifestErrors.size > 0) {
+                subgraphDebug('Manifest validation failed for %s', filename);
                 throwCombinedError(filename, manifestErrors);
             }
         }
         const manifest = immutable_1.default.fromJS(data);
+        subgraphDebug.extend('manifest')('Loaded: %M', manifest);
         // Validate the schema
+        subgraphDebug.extend('manifest')('Validating schema');
         Subgraph.validateSchema(manifest, { resolveFile });
         // Perform other validations
         const protocolSubgraph = protocol.getSubgraph({

@@ -97,7 +97,8 @@ export const generateScaffold = async (
     spkgPath,
   });
 
-  return await scaffold.generate();
+  let scaffoldDetails = await scaffold.generate();
+  return scaffoldDetails;
 };
 
 const writeScaffoldDirectory = async (scaffold: any, directory: string, spinner: Spinner) => {

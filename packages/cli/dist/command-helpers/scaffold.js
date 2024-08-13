@@ -16,14 +16,18 @@ const tests_1 = require("../scaffold/tests");
 const spinner_1 = require("./spinner");
 const generateDataSource = async (protocol, contractName, network, contractAddress, abi, startBlock) => {
     const protocolManifest = protocol.getManifestScaffold();
-    return immutable_1.Map.of('kind', protocol.name, 'name', contractName, 'network', network, 'source', yaml_1.default.parse(prettier_1.default.format(protocolManifest.source({ contract: contractAddress, contractName, startBlock }), {
+    return immutable_1.Map.of('kind', protocol.name, 'name', contractName, 'network', network, 'source', yaml_1.default.parse(await prettier_1.default.format(protocolManifest.source({
+        contract: contractAddress,
+        contractName,
+        startBlock,
+    }), {
         parser: 'yaml',
-    })), 'mapping', yaml_1.default.parse(prettier_1.default.format(protocolManifest.mapping({ abi, contractName }), {
+    })), 'mapping', yaml_1.default.parse(await prettier_1.default.format(protocolManifest.mapping({ abi, contractName }), {
         parser: 'yaml',
     }))).asMutable();
 };
 exports.generateDataSource = generateDataSource;
-const generateScaffold = async ({ protocolInstance, abi, contract, network, subgraphName, fromContracts, etherscanApikey, indexEvents, contractName = 'Contract', startBlock, node, }, spinner) => {
+const generateScaffold = async ({ protocolInstance, abi, contract, network, subgraphName, fromContracts, etherscanApikey, indexEvents, contractName = 'Contract', startBlock, node, spkgPath, }, spinner) => {
     (0, spinner_1.step)(spinner, 'Generate subgraph');
     const scaffold = new scaffold_1.default({
         protocol: protocolInstance,
@@ -37,8 +41,10 @@ const generateScaffold = async ({ protocolInstance, abi, contract, network, subg
         fromContracts,
         etherscanApikey,
         node,
+        spkgPath,
     });
-    return scaffold.generate();
+    let scaffoldDetails = await scaffold.generate();
+    return scaffoldDetails;
 };
 exports.generateScaffold = generateScaffold;
 const writeScaffoldDirectory = async (scaffold, directory, spinner) => {
@@ -66,7 +72,7 @@ const writeScaffold = async (scaffold, directory, spinner) => {
 };
 exports.writeScaffold = writeScaffold;
 const writeABI = async (abi, contractName) => {
-    const data = prettier_1.default.format(JSON.stringify(abi.data), {
+    const data = await prettier_1.default.format(JSON.stringify(abi.data), {
         parser: 'json',
     });
     await fs_extra_1.default.writeFile(`./abis/${contractName}.json`, data, 'utf-8');
@@ -78,7 +84,7 @@ const writeSchema = async (abi, protocol, schemaPath, entities, contractName) =>
             .filter(event => !entities.includes(event.get('name')))
             .toJS()
         : [];
-    const data = prettier_1.default.format(events.map(event => (0, schema_1.generateEventType)(event, protocol.name, contractName)).join('\n\n'), {
+    const data = await prettier_1.default.format(events.map(event => (0, schema_1.generateEventType)(event, protocol.name, contractName)).join('\n\n'), {
         parser: 'graphql',
     });
     await fs_extra_1.default.appendFile(schemaPath, data, { encoding: 'utf-8' });
@@ -95,17 +101,10 @@ exports.writeSchema = writeSchema;
 //         .filter(event => !entities.includes(event.get('name')))
 //         .toJS()
 //     : [];
-//
-//   const mapping = prettier.format(generateEventIndexingHandlers({
-//     events,
-//     contractName,
-//     contract: ,
-//     isTemplateContract: false,
-//     methods: [] }), {
+//   const mapping = await prettier.format(generateEventIndexingHandlers(events, contractName), {
 //     parser: 'typescript',
 //     semi: false,
 //   });
-//
 //   await fs.writeFile(`./src/${strings.kebabCase(contractName)}.ts`, mapping, 'utf-8');
 // };
 const writeTestsFiles = async (abi, protocol, contractName) => {
@@ -114,7 +113,7 @@ const writeTestsFiles = async (abi, protocol, contractName) => {
     if (events.length > 0) {
         // If a contract is added to a subgraph that has no tests folder
         await fs_extra_1.default.ensureDir('./tests/');
-        const testsFiles = (0, tests_1.generateTestsFiles)(contractName, events, true);
+        const testsFiles = await (0, tests_1.generateTestsFiles)(contractName, events, true);
         for (const [fileName, content] of Object.entries(testsFiles)) {
             await fs_extra_1.default.writeFile(`./tests/${fileName}`, content, 'utf-8');
         }

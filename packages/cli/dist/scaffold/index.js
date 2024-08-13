@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const prettier_1 = __importDefault(require("prettier"));
 const subgraph_1 = require("../command-helpers/subgraph");
+const get_docker_file_1 = require("./get-docker-file");
+const get_git_ignore_1 = require("./get-git-ignore");
 const mapping_1 = require("./mapping");
 const schema_1 = require("./schema");
 const tests_1 = require("./tests");
@@ -13,7 +15,6 @@ class Scaffold {
     constructor(options) {
         this.shouldIndexCallHandler = (network) => {
             // eslint-disable-next-line no-console
-            console.log(`shouldIndexCallHandler network: ${network}`);
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
             return constant_1.default.callHandlerSupportedNetworks.includes(network);
@@ -27,11 +28,12 @@ class Scaffold {
         this.subgraphName = options.subgraphName;
         this.startBlock = options.startBlock;
         this.node = options.node;
+        this.spkgPath = options.spkgPath;
         this.fromContracts = options.fromContracts;
         this.etherscanApikey = options.etherscanApikey;
     }
-    generatePackageJson() {
-        return prettier_1.default.format(JSON.stringify({
+    async generatePackageJson() {
+        return await prettier_1.default.format(JSON.stringify({
             name: (0, subgraph_1.getSubgraphBasename)(String(this.subgraphName)),
             license: 'UNLICENSED',
             scripts: {
@@ -47,10 +49,30 @@ class Scaffold {
                 test: 'graph test',
             },
             dependencies: {
-                '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?custom/graph-cli",
-                '@graphprotocol/graph-ts': `0.29.1`,
+                '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?cli-upgrade",
+                '@graphprotocol/graph-ts': `0.32.0`,
             },
             devDependencies: this.protocol.hasEvents() ? { 'matchstick-as': `0.5.0` } : undefined,
+        }), { parser: 'json' });
+    }
+    async generatePackageJsonForSubstreams() {
+        return await prettier_1.default.format(JSON.stringify({
+            name: (0, subgraph_1.getSubgraphBasename)(String(this.subgraphName)),
+            license: 'UNLICENSED',
+            scripts: {
+                build: 'graph build',
+                deploy: `graph deploy ` + `--node ${this.node} ` + this.subgraphName,
+                'create-local': `graph create --node http://localhost:8020/ ${this.subgraphName}`,
+                'remove-local': `graph remove --node http://localhost:8020/ ${this.subgraphName}`,
+                'deploy-local': `graph deploy ` +
+                    `--node http://localhost:8020/ ` +
+                    `--ipfs http://localhost:5001 ` +
+                    this.subgraphName,
+                test: 'graph test',
+            },
+            dependencies: {
+                '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?cli-upgrade",
+            },
         }), { parser: 'json' });
     }
     async generateDataSource() {
@@ -62,42 +84,44 @@ class Scaffold {
             const contractName = fromContracts[i].contractName;
             const contract = fromContracts[i].contractAddress;
             const r = `
-    - kind: ${this.protocol.name}
-      name: ${contractName}
-      network: ${this.network}
-      source: ${await protocolManifest.source({ contract, contractName, network: this.network, etherscanApikey: this.etherscanApikey })}
-      mapping: ${protocolManifest.mapping({ abi, contractName }) /*{ abi, contractName }*/}`;
+- kind: ${this.protocol.name}
+  name: ${contractName}
+  network: ${this.network}
+  source: ${await protocolManifest.source({ contract, contractName, network: this.network, etherscanApikey: this.etherscanApikey })}
+  mapping: ${protocolManifest.mapping({ abi, contractName }) /*{ abi, contractName }*/}`;
             result.push(r);
         }
         return result.join('');
     }
     async generateManifest() {
-        // const protocolManifest = this.protocol.getManifestScaffold()
-        const yamlContent = prettier_1.default.format(`
-specVersion: 0.0.5
+        // const protocolManifest = this.protocol.getManifestScaffold();
+        return await prettier_1.default.format(`
+specVersion: 1.0.0
 schema:
     file: ./schema.graphql
 dataSources:
     ${await this.generateDataSource()}
 `, { parser: 'yaml' });
-        return yamlContent;
     }
-    generateSchema({ abi, contractName }) {
+    async generateSchema({ abi, contractName }) {
         const hasEvents = this.protocol.hasEvents();
         const events = hasEvents ? (0, schema_1.abiEvents)(abi).toJS() : [];
-        return prettier_1.default.format(hasEvents ? events.map(event => (0, schema_1.generateEventType)(event, this.protocol.name, contractName)).join('\n\n') :
-            (0, schema_1.generateExampleEntityType)(this.protocol, contractName, events), {
+        return await prettier_1.default.format(hasEvents ? events
+            .map((event) => (0, schema_1.generateEventType)(event, this.protocol.name, contractName))
+            .join('\n\n')
+            : (0, schema_1.generateExampleEntityType)(this.protocol, contractName, events), {
             parser: 'graphql',
+            trailingComma: 'none',
         });
     }
-    generateSchemas() {
+    async generateSchemas() {
         const schema = [];
         const fromContracts = this.fromContracts ?? [];
         for (let i = 0; i < fromContracts.length; i++) {
             const fromContract = fromContracts[i];
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
-            schema.push(this.generateSchema({ abi: fromContract.contractAbi, contractName: fromContract.contractName }));
+            schema.push(await this.generateSchema({ abi: fromContract.contractAbi, contractName: fromContract.contractName }));
         }
         return schema.join('\n');
     }
@@ -107,12 +131,18 @@ dataSources:
             include: ['src', 'tests'],
         }), { parser: 'json' });
     }
-    generateMapping({ indexCallHandler, contract, isTemplateContract }) {
+    async generateDockerFileConfig() {
+        return await prettier_1.default.format((0, get_docker_file_1.getDockerFile)(), { parser: 'yaml' });
+    }
+    generateGitIgnoreFile() {
+        return (0, get_git_ignore_1.getGitIgnore)();
+    }
+    async generateMapping({ indexCallHandler, contract, isTemplateContract }) {
         const hasEvents = this.protocol.hasEvents();
         const events = hasEvents ? (0, schema_1.abiEvents)(contract.contractAbi).toJS() : [];
         const methods = hasEvents && indexCallHandler ? (0, schema_1.abiMethods)(contract.contractAbi).toJS() : [];
         const protocolMapping = this.protocol.getMappingScaffold();
-        return prettier_1.default.format(hasEvents
+        return await prettier_1.default.format(hasEvents
             ? (0, mapping_1.generateEventIndexingHandlers)({
                 events,
                 contractName: contract.contractName,
@@ -124,46 +154,52 @@ dataSources:
                 abi: contract.contractAbi,
                 contractName: contract.contractName,
                 events,
-            }), { parser: 'typescript', semi: false });
+            }), { parser: 'typescript', semi: false, trailingComma: 'none' });
     }
-    generateABIs() {
+    async generateABIs() {
         return this.protocol.hasABIs()
             ? {
-                [`${this.contractName}.json`]: prettier_1.default.format(JSON.stringify(this.abi?.data), {
+                [`${this.contractName}.json`]: await prettier_1.default.format(JSON.stringify(this.abi?.data), {
                     parser: 'json',
                 }),
             }
             : undefined;
     }
-    generateTests() {
+    async generateTests() {
         const hasEvents = this.protocol.hasEvents();
         const events = hasEvents ? (0, schema_1.abiEvents)(this.abi).toJS() : [];
         return events.length > 0
-            ? (0, tests_1.generateTestsFiles)(this.contractName, events, this.indexEvents)
+            ? await (0, tests_1.generateTestsFiles)(this.contractName, events, this.indexEvents)
             : undefined;
     }
     async generate() {
+        if (this.protocol.name === 'substreams') {
+            return {
+                'subgraph.yaml': await this.generateManifest(),
+                'schema.graphql': await this.generateSchemas(),
+                'package.json': await this.generatePackageJsonForSubstreams(),
+                '.gitignore': await this.generateGitIgnoreFile(),
+            };
+        }
         const mappingMap = {};
         const abiMap = {};
         const fromContracts = this.fromContracts ?? [];
         for (let i = 0; i < fromContracts.length; i++) {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
-            mappingMap[`${fromContracts[i].contractName}Mapping.ts`] = this.generateMapping({
+            mappingMap[`${fromContracts[i].contractName}Mapping.ts`] = await this.generateMapping({
                 contract: fromContracts[i],
                 isTemplateContract: false,
                 indexCallHandler: this.shouldIndexCallHandler(this.network),
             });
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
-            abiMap[`${fromContracts[i].contractName}.json`] = this.protocol.hasEvents() ? prettier_1.default.format(JSON.stringify(fromContracts[i].contractAbi.data), {
-                parser: 'json',
-            }) : '';
+            abiMap[`${fromContracts[i].contractName}.json`] = this.protocol.hasEvents() ? JSON.stringify(fromContracts[i].contractAbi.data) : '';
             const templateContracts = fromContracts[i].templateContracts;
             for (let j = 0; j < templateContracts.length; j++) {
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                 // @ts-ignore
-                mappingMap[`${templateContracts[j].contractName}Mapping.ts`] = this.generateMapping({
+                mappingMap[`${templateContracts[j].contractName}Mapping.ts`] = await this.generateMapping({
                     contract: templateContracts[j],
                     isTemplateContract: true,
                     indexCallHandler: this.shouldIndexCallHandler(this.network),
@@ -176,12 +212,13 @@ dataSources:
             }
         }
         return {
-            'package.json': this.generatePackageJson(),
+            'package.json': await this.generatePackageJson(),
             'subgraph.yaml': await this.generateManifest(),
-            'schema.graphql': this.generateSchemas(),
-            'tsconfig.json': this.generateTsConfig(),
+            'schema.graphql': await this.generateSchemas(),
+            'tsconfig.json': await this.generateTsConfig(),
             src: mappingMap,
-            abis: abiMap
+            abis: abiMap,
+            // tests: this.generateTests(),
         };
     }
 }

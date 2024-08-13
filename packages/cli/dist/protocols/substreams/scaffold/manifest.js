@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mapping = exports.source = void 0;
-const source = () => `
+const source = ({ spkgPath }) => `
       package:
         moduleName: graph_out
-        file: substreams-eth-block-meta-v0.1.0.spkg`;
+        file: ${spkgPath || 'substreams-eth-block-meta-v0.1.0.spkg'}`;
 exports.source = source;
 const mapping = () => `
       apiVersion: 0.0.5

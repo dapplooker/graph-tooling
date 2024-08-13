@@ -50,11 +50,18 @@ const subgraph_5 = __importDefault(require("./substreams/subgraph"));
 const protocolDebug = (0, debug_1.default)('graph-cli:protocol');
 class Protocol {
     static fromDataSources(dataSourcesAndTemplates) {
-        const firstDataSourceKind = dataSourcesAndTemplates[0].kind;
-        return new Protocol(firstDataSourceKind);
+        const firstDataSource = dataSourcesAndTemplates[0];
+        return new Protocol(firstDataSource);
     }
-    constructor(name) {
+    constructor(datasource) {
+        /**
+         * TODO: we should improve this `any` type, because some places
+         * we can initiate a Protocol with just a string (the name) and
+         * some other places use datasource object
+         */
+        const name = typeof datasource === 'string' ? datasource : datasource.kind;
         this.name = Protocol.normalizeName(name);
+        protocolDebug('Initializing protocol %s', this.name);
         switch (this.name) {
             case 'arweave':
                 this.config = arweaveProtocol;
@@ -70,6 +77,13 @@ class Protocol {
                 break;
             case 'substreams':
                 this.config = substreamsProtocol;
+                /**
+                 * Substreams triggers are a special case of substreams data sources
+                 * which have a mapping file and a handler.
+                 */
+                if (datasource?.mapping?.file && datasource?.mapping.handler) {
+                    this.name = 'substreams/triggers';
+                }
                 break;
             default:
             // Do not throw when undefined, a better error message is printed after the constructor
@@ -114,15 +128,20 @@ class Protocol {
                 'mbase',
                 'arbitrum-one',
                 'arbitrum-goerli',
+                'arbitrum-sepolia',
                 'optimism',
                 'optimism-goerli',
                 'aurora',
                 'aurora-testnet',
                 'base-testnet',
+                'base',
                 'zksync-era',
+                'zksync-era-testnet',
                 'sepolia',
                 'polygon-zkevm-testnet',
                 'polygon-zkevm',
+                'scroll-sepolia',
+                'scroll',
             ],
             near: ['near-mainnet', 'near-testnet'],
             cosmos: [

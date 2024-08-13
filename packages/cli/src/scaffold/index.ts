@@ -148,8 +148,6 @@ export default class Scaffold {
     return await prettier.format(
       `
 specVersion: 1.0.0
-indexerHints:
-  prune: auto
 schema:
     file: ./schema.graphql
 dataSources:
@@ -277,9 +275,7 @@ dataSources:
       });
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      abiMap[`${fromContracts[i].contractName}.json`] = this.protocol.hasEvents() ? prettier.format(JSON.stringify(fromContracts[i].contractAbi.data), {
-        parser: 'json',
-      }) : '';
+      abiMap[`${fromContracts[i].contractName}.json`] = this.protocol.hasEvents() ? JSON.stringify(fromContracts[i].contractAbi.data): '';
 
       const templateContracts = fromContracts[i].templateContracts;
       for (let j = 0; j < templateContracts.length; j++) {

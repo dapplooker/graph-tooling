@@ -28,8 +28,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const path_1 = __importDefault(require("path"));
 const url_1 = require("url");
-const core_1 = require("@oclif/core");
 const gluegun_1 = require("gluegun");
+const ipfs_http_client_1 = require("ipfs-http-client");
+const core_1 = require("@oclif/core");
 const auth_1 = require("../command-helpers/auth");
 const compiler_1 = require("../command-helpers/compiler");
 const DataSourcesExtractor = __importStar(require("../command-helpers/data-sources"));
@@ -37,8 +38,9 @@ const ipfs_1 = require("../command-helpers/ipfs");
 const jsonrpc_1 = require("../command-helpers/jsonrpc");
 const network_1 = require("../command-helpers/network");
 const node_1 = require("../command-helpers/node");
-const studio_1 = require("../command-helpers/studio");
 const version_1 = require("../command-helpers/version");
+const constants_1 = require("../constants");
+const debug_1 = __importDefault(require("../debug"));
 const protocols_1 = __importDefault(require("../protocols"));
 const headersFlag = core_1.Flags.custom({
     summary: 'Add custom headers that will be used by the IPFS HTTP client.',
@@ -47,9 +49,113 @@ const headersFlag = core_1.Flags.custom({
     default: {},
 });
 const productOptions = ['subgraph-studio', 'hosted-service'];
+const deployDebugger = (0, debug_1.default)('graph-cli:deploy');
 class DeployCommand extends core_1.Command {
     async run() {
-        const { args: { 'subgraph-name': subgraphNameArg, 'subgraph-manifest': manifest }, flags: { product: productFlag, studio, 'deploy-key': deployKeyFlag, 'access-token': accessToken, 'version-label': versionLabelFlag, ipfs, headers, node: nodeFlag, 'output-dir': outputDir, 'skip-migrations': skipMigrations, watch, 'debug-fork': debugFork, network, 'network-file': networkFile, }, } = await this.parse(DeployCommand);
+        const { args: { 'subgraph-name': subgraphNameArg, 'subgraph-manifest': manifest }, flags: { product: productFlag, studio, 'deploy-key': deployKeyFlag, 'access-token': accessToken, 'version-label': versionLabelFlag, ipfs, headers, node: nodeFlag, 'output-dir': outputDir, 'skip-migrations': skipMigrations, watch, 'debug-fork': debugFork, network, 'network-file': networkFile, 'ipfs-hash': ipfsHash, 'from-hosted-service': hostedServiceSubgraphName, }, } = await this.parse(DeployCommand);
+        if (hostedServiceSubgraphName) {
+            const { health, subgraph: subgraphIpfsHash } = await (0, node_1.getHostedServiceSubgraphId)({
+                subgraphName: hostedServiceSubgraphName,
+            });
+            const safeToDeployFailedSubgraph = health === 'failed'
+                ? await core_1.ux.confirm('This subgraph has failed indexing on hosted service. Do you wish to continue the deploy?')
+                : true;
+            if (!safeToDeployFailedSubgraph)
+                return;
+            const safeToDeployUnhealthySubgraph = health === 'unhealthy'
+                ? await core_1.ux.confirm('This subgraph is not healthy on hosted service. Do you wish to continue the deploy?')
+                : true;
+            if (!safeToDeployUnhealthySubgraph)
+                return;
+            const { node } = (0, node_1.chooseNodeUrl)({ studio: true, product: undefined });
+            // shouldn't happen, but we need to satisfy the compiler
+            if (!node) {
+                this.error('No node URL available');
+            }
+            const requestUrl = new url_1.URL(node);
+            const client = (0, jsonrpc_1.createJsonRpcClient)(requestUrl);
+            // Exit with an error code if the client couldn't be created
+            if (!client) {
+                this.error('Failed to create RPC client');
+            }
+            // Use the deploy key, if one is set
+            let deployKey = deployKeyFlag;
+            if (!deployKey && accessToken) {
+                deployKey = accessToken; // backwards compatibility
+            }
+            deployKey = await (0, auth_1.identifyDeployKey)(node, deployKey);
+            if (!deployKey) {
+                this.error('No deploy key available');
+            }
+            // @ts-expect-error options property seems to exist
+            client.options.headers = {
+                ...constants_1.GRAPH_CLI_SHARED_HEADERS,
+                Authorization: 'Bearer ' + deployKey,
+            };
+            const subgraphName = await core_1.ux.prompt('What is the name of the subgraph you want to deploy?', {
+                required: true,
+            });
+            // Ask for label if not on hosted service
+            const versionLabel = versionLabelFlag ||
+                (await core_1.ux.prompt('Which version label to use? (e.g. "v0.0.1")', {
+                    required: true,
+                }));
+            const spinner = gluegun_1.print.spin(`Deploying to Graph node ${requestUrl}`);
+            client.request('subgraph_deploy', {
+                name: subgraphName,
+                ipfs_hash: subgraphIpfsHash,
+                version_label: versionLabel,
+                debug_fork: debugFork,
+            }, async (
+            // @ts-expect-error TODO: why are the arguments not typed?
+            requestError, 
+            // @ts-expect-error TODO: why are the arguments not typed?
+            jsonRpcError, 
+            // @ts-expect-error TODO: why are the arguments not typed?
+            res) => {
+                deployDebugger('requestError: %O', requestError);
+                deployDebugger('jsonRpcError: %O', jsonRpcError);
+                if (jsonRpcError) {
+                    const message = jsonRpcError?.message || jsonRpcError?.code?.toString();
+                    deployDebugger('message: %O', message);
+                    let errorMessage = `Failed to deploy to Graph node ${requestUrl}: ${message}`;
+                    // Provide helpful advice when the subgraph has not been created yet
+                    if (message?.match(/subgraph name not found/)) {
+                        errorMessage += `
+        Make sure to create the subgraph first by running the following command:
+        $ graph create --node ${node} ${subgraphName}`;
+                    }
+                    if (message?.match(/auth failure/)) {
+                        errorMessage += '\nYou may need to authenticate first.';
+                    }
+                    spinner.fail(errorMessage);
+                    process.exit(1);
+                }
+                else if (requestError) {
+                    spinner.fail(`HTTP error deploying the subgraph ${requestError.code}`);
+                    process.exit(1);
+                }
+                else {
+                    spinner.stop();
+                    const base = requestUrl.protocol + '//' + requestUrl.hostname;
+                    let playground = res.playground;
+                    let queries = res.queries;
+                    // Add a base URL if graph-node did not return the full URL
+                    if (playground.charAt(0) === ':') {
+                        playground = base + playground;
+                    }
+                    if (queries.charAt(0) === ':') {
+                        queries = base + queries;
+                    }
+                    gluegun_1.print.success(`Deployed to ${playground}`);
+                    gluegun_1.print.info('\nSubgraph endpoints:');
+                    gluegun_1.print.info(`Queries (HTTP):     ${queries}`);
+                    gluegun_1.print.info(``);
+                    process.exit(0);
+                }
+            });
+            return;
+        }
         const subgraphName = subgraphNameArg ||
             (await core_1.ux.prompt('What is the subgraph name?', {
                 required: true,
@@ -71,14 +177,8 @@ class DeployCommand extends core_1.Command {
                         },
                     ])
                         .then(({ product }) => product));
-        try {
-            const dataSourcesAndTemplates = await DataSourcesExtractor.fromFilePath(manifest);
-            for (const { network } of dataSourcesAndTemplates) {
-                (0, studio_1.validateStudioNetwork)({ studio, product, network });
-            }
-        }
-        catch (e) {
-            this.error(e, { exit: 1 });
+        if (product === 'hosted-service') {
+            this.error('✖ The hosted service is deprecated', { exit: 1 });
         }
         const { node } = (0, node_1.chooseNodeUrl)({
             product,
@@ -89,49 +189,8 @@ class DeployCommand extends core_1.Command {
             // shouldn't happen, but we do the check to satisfy TS
             this.error('No Graph node provided');
         }
-        let protocol;
-        try {
-            // Checks to make sure deploy doesn't run against
-            // older subgraphs (both apiVersion and graph-ts version).
-            //
-            // We don't want the deploy to run without these conditions
-            // because that would mean the CLI would try to compile code
-            // using the wrong AssemblyScript compiler.
-            await (0, version_1.assertManifestApiVersion)(manifest, '0.0.5');
-            await (0, version_1.assertGraphTsVersion)(path_1.default.dirname(manifest), '0.25.0');
-            const dataSourcesAndTemplates = await DataSourcesExtractor.fromFilePath(manifest);
-            protocol = protocols_1.default.fromDataSources(dataSourcesAndTemplates);
-        }
-        catch (e) {
-            this.error(e, { exit: 1 });
-        }
-        if (network) {
-            const identifierName = protocol.getContract().identifierName();
-            await (0, network_1.updateSubgraphNetwork)(manifest, network, networkFile, identifierName);
-        }
         const isStudio = node.match(/studio/);
         const isHostedService = node.match(/thegraph.com/) && !isStudio;
-        const compiler = (0, compiler_1.createCompiler)(manifest, {
-            ipfs,
-            headers,
-            outputDir,
-            outputFormat: 'wasm',
-            skipMigrations,
-            blockIpfsMethods: isStudio || undefined,
-            protocol,
-        });
-        // Exit with an error code if the compiler couldn't be created
-        if (!compiler) {
-            this.exit(1);
-            return;
-        }
-        // Ask for label if not on hosted service
-        let versionLabel = versionLabelFlag;
-        if (!versionLabel && !isHostedService) {
-            versionLabel = await core_1.ux.prompt('Which version label to use? (e.g. "v0.0.1")', {
-                required: true,
-            });
-        }
         const requestUrl = new url_1.URL(node);
         const client = (0, jsonrpc_1.createJsonRpcClient)(requestUrl);
         // Exit with an error code if the client couldn't be created
@@ -147,10 +206,18 @@ class DeployCommand extends core_1.Command {
         deployKey = await (0, auth_1.identifyDeployKey)(node, deployKey);
         if (deployKey !== undefined && deployKey !== null) {
             // @ts-expect-error options property seems to exist
-            client.options.headers = { Authorization: 'Bearer ' + deployKey };
+            client.options.headers = {
+                ...constants_1.GRAPH_CLI_SHARED_HEADERS,
+                Authorization: 'Bearer ' + deployKey,
+            };
         }
-        // eslint-disable-next-line @typescript-eslint/no-this-alias -- request needs it
-        const self = this;
+        // Ask for label if not on hosted service
+        let versionLabel = versionLabelFlag;
+        if (!versionLabel && !isHostedService) {
+            versionLabel = await core_1.ux.prompt('Which version label to use? (e.g. "v0.0.1")', {
+                required: true,
+            });
+        }
         const deploySubgraph = async (ipfsHash) => {
             const spinner = gluegun_1.print.spin(`Deploying to Graph node ${requestUrl}`);
             client.request('subgraph_deploy', {
@@ -165,21 +232,29 @@ class DeployCommand extends core_1.Command {
             jsonRpcError, 
             // @ts-expect-error TODO: why are the arguments not typed?
             res) => {
+                deployDebugger('requestError: %O', requestError);
+                deployDebugger('jsonRpcError: %O', jsonRpcError);
                 if (jsonRpcError) {
-                    let errorMessage = `Failed to deploy to Graph node ${requestUrl}: ${jsonRpcError.message}`;
+                    const message = jsonRpcError?.message || jsonRpcError?.code?.toString();
+                    deployDebugger('message: %O', message);
+                    let errorMessage = `Failed to deploy to Graph node ${requestUrl}: ${message}`;
                     // Provide helpful advice when the subgraph has not been created yet
-                    if (jsonRpcError.message.match(/subgraph name not found/)) {
+                    if (message?.match(/subgraph name not found/)) {
                         if (isHostedService) {
                             errorMessage +=
                                 '\nYou may need to create it at https://thegraph.com/explorer/dashboard.';
                         }
                         else {
                             errorMessage += `
-Make sure to create the subgraph first by running the following command:
-$ graph create --node ${node} ${subgraphName}`;
+      Make sure to create the subgraph first by running the following command:
+      $ graph create --node ${node} ${subgraphName}`;
                         }
                     }
-                    self.error(errorMessage, { exit: 1 });
+                    if (message?.match(/auth failure/)) {
+                        errorMessage += '\nYou may need to authenticate first.';
+                    }
+                    spinner.fail(errorMessage);
+                    this.exit(1);
                 }
                 else if (requestError) {
                     spinner.fail(`HTTP error deploying the subgraph ${requestError.code}`);
@@ -206,9 +281,67 @@ $ graph create --node ${node} ${subgraphName}`;
                     gluegun_1.print.info('\nSubgraph endpoints:');
                     gluegun_1.print.info(`Queries (HTTP):     ${queries}`);
                     gluegun_1.print.info(``);
+                    process.exit(0);
                 }
             });
         };
+        // we are provided the IPFS hash, so we deploy directly
+        if (ipfsHash) {
+            // Connect to the IPFS node (if a node address was provided)
+            const ipfsClient = (0, ipfs_http_client_1.create)({
+                url: (0, compiler_1.appendApiVersionForGraph)(ipfs.toString()),
+                headers: {
+                    ...headers,
+                    ...constants_1.GRAPH_CLI_SHARED_HEADERS,
+                },
+            });
+            // Fetch the manifest from IPFS
+            const manifestBuffer = ipfsClient.cat(ipfsHash);
+            let manifestFile = '';
+            for await (const chunk of manifestBuffer) {
+                manifestFile += chunk.toString();
+            }
+            if (!manifestFile) {
+                this.error(`Could not find subgraph manifest at IPFS hash ${ipfsHash}`, { exit: 1 });
+            }
+            await ipfsClient.pin.add(ipfsHash);
+            await deploySubgraph(ipfsHash);
+            return;
+        }
+        let protocol;
+        try {
+            // Checks to make sure deploy doesn't run against
+            // older subgraphs (both apiVersion and graph-ts version).
+            //
+            // We don't want the deploy to run without these conditions
+            // because that would mean the CLI would try to compile code
+            // using the wrong AssemblyScript compiler.
+            await (0, version_1.assertManifestApiVersion)(manifest, '0.0.5');
+            await (0, version_1.assertGraphTsVersion)(path_1.default.dirname(manifest), '0.25.0');
+            const dataSourcesAndTemplates = await DataSourcesExtractor.fromFilePath(manifest);
+            protocol = protocols_1.default.fromDataSources(dataSourcesAndTemplates);
+        }
+        catch (e) {
+            this.error(e, { exit: 1 });
+        }
+        if (network) {
+            const identifierName = protocol.getContract().identifierName();
+            await (0, network_1.updateSubgraphNetwork)(manifest, network, networkFile, identifierName);
+        }
+        const compiler = (0, compiler_1.createCompiler)(manifest, {
+            ipfs,
+            headers,
+            outputDir,
+            outputFormat: 'wasm',
+            skipMigrations,
+            blockIpfsMethods: undefined,
+            protocol,
+        });
+        // Exit with an error code if the compiler couldn't be created
+        if (!compiler) {
+            this.exit(1);
+            return;
+        }
         if (watch) {
             await compiler.watchAndCompile(async (ipfsHash) => {
                 if (ipfsHash !== undefined) {
@@ -255,9 +388,11 @@ DeployCommand.flags = {
         exclusive: ['access-token'],
     }),
     'access-token': core_1.Flags.string({
-        deprecated: true,
-        summary: 'Graph access key. DEPRECATED: Use "--deploy-key" instead.',
         exclusive: ['deploy-key'],
+        deprecated: {
+            to: 'deploy-key',
+            message: "In next version, we are removing this flag in favor of '--deploy-key'",
+        },
     }),
     'version-label': core_1.Flags.string({
         summary: 'Version label used for the deployment.',
@@ -267,6 +402,10 @@ DeployCommand.flags = {
         summary: 'Upload build results to an IPFS node.',
         char: 'i',
         default: ipfs_1.DEFAULT_IPFS_URL,
+    }),
+    'ipfs-hash': core_1.Flags.string({
+        summary: 'IPFS hash of the subgraph manifest to deploy.',
+        required: false,
     }),
     headers: headersFlag(),
     'debug-fork': core_1.Flags.string({
@@ -291,6 +430,9 @@ DeployCommand.flags = {
     'network-file': core_1.Flags.file({
         summary: 'Networks config file path.',
         default: 'networks.json',
+    }),
+    'from-hosted-service': core_1.Flags.string({
+        summary: 'Hosted service Subgraph Name to deploy to studio.',
     }),
 };
 exports.default = DeployCommand;

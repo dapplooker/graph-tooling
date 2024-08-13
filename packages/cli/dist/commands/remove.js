@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const url_1 = require("url");
-const core_1 = require("@oclif/core");
 const gluegun_1 = require("gluegun");
+const core_1 = require("@oclif/core");
 const auth_1 = require("../command-helpers/auth");
 const jsonrpc_1 = require("../command-helpers/jsonrpc");
 const node_1 = require("../command-helpers/node");
+const constants_1 = require("../constants");
 class RemoveCommand extends core_1.Command {
     async run() {
         const { args: { 'subgraph-name': subgraphName }, flags: { 'access-token': accessTokenFlag, node }, } = await this.parse(RemoveCommand);
@@ -26,7 +27,10 @@ class RemoveCommand extends core_1.Command {
         const accessToken = await (0, auth_1.identifyDeployKey)(node, accessTokenFlag);
         if (accessToken !== undefined && accessToken !== null) {
             // @ts-expect-error options property seems to exist
-            client.options.headers = { Authorization: `Bearer ${accessToken}` };
+            client.options.headers = {
+                ...constants_1.GRAPH_CLI_SHARED_HEADERS,
+                Authorization: `Bearer ${accessToken}`,
+            };
         }
         const spinner = gluegun_1.print.spin(`Creating subgraph in Graph node: ${requestUrl}`);
         client.request('subgraph_remove', { name: subgraphName }, (
@@ -54,6 +58,10 @@ class RemoveCommand extends core_1.Command {
     }
 }
 RemoveCommand.description = 'Unregisters a subgraph name';
+RemoveCommand.state = 'deprecated';
+RemoveCommand.deprecationOptions = {
+    message: 'In next major version, this command will be merged as a subcommand for `graph local`.',
+};
 RemoveCommand.args = {
     'subgraph-name': core_1.Args.string({
         required: true,

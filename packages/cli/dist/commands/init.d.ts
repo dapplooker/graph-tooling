@@ -16,8 +16,11 @@ export default class InitCommand extends Command {
         'from-example': import("@oclif/core/lib/interfaces").OptionFlag<string | undefined, import("@oclif/core/lib/interfaces/parser").CustomOptions>;
         'contract-name': import("@oclif/core/lib/interfaces").OptionFlag<string | undefined, import("@oclif/core/lib/interfaces/parser").CustomOptions>;
         'index-events': import("@oclif/core/lib/interfaces").BooleanFlag<boolean>;
+        'skip-install': import("@oclif/core/lib/interfaces").BooleanFlag<boolean>;
+        'skip-git': import("@oclif/core/lib/interfaces").BooleanFlag<boolean>;
         'start-block': import("@oclif/core/lib/interfaces").OptionFlag<string | undefined, import("@oclif/core/lib/interfaces/parser").CustomOptions>;
         abi: import("@oclif/core/lib/interfaces").OptionFlag<string | undefined, import("@oclif/core/lib/interfaces/parser").CustomOptions>;
+        spkg: import("@oclif/core/lib/interfaces").OptionFlag<string | undefined, import("@oclif/core/lib/interfaces/parser").CustomOptions>;
         network: import("@oclif/core/lib/interfaces").OptionFlag<string | undefined, import("@oclif/core/lib/interfaces/parser").CustomOptions>;
     };
     run(): Promise<void>;

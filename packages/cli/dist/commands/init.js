@@ -29,31 +29,74 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const fs_1 = __importDefault(require("fs"));
 const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
-const core_1 = require("@oclif/core");
+const toolbox = __importStar(require("gluegun"));
 const gluegun_1 = require("gluegun");
+const core_1 = require("@oclif/core");
 const abi_1 = require("../command-helpers/abi");
-const DataSourcesExtractor = __importStar(require("../command-helpers/data-sources"));
 const network_1 = require("../command-helpers/network");
 const node_1 = require("../command-helpers/node");
 const scaffold_1 = require("../command-helpers/scaffold");
+const sort_1 = require("../command-helpers/sort");
 const spinner_1 = require("../command-helpers/spinner");
-const studio_1 = require("../command-helpers/studio");
 const subgraph_1 = require("../command-helpers/subgraph");
+const constants_1 = require("../constants");
 const debug_1 = __importDefault(require("../debug"));
 const protocols_1 = __importDefault(require("../protocols"));
 const schema_1 = require("../scaffold/schema");
 const validation_1 = require("../validation");
 const add_1 = __importDefault(require("./add"));
-const initDebug = (0, debug_1.default)('graph-cli:init');
 const protocolChoices = Array.from(protocols_1.default.availableProtocols().keys());
-const availableNetworks = protocols_1.default.availableNetworks();
-const DEFAULT_EXAMPLE_SUBGRAPH = 'ethereum/gravatar';
+const initDebugger = (0, debug_1.default)('graph-cli:commands:init');
+/**
+ * a dynamic list of available networks supported by the studio
+ */
+const AVAILABLE_NETWORKS = async () => {
+    const logger = initDebugger.extend('AVAILABLE_NETWORKS');
+    try {
+        logger('fetching chain_list from studio');
+        const res = await fetch(node_1.SUBGRAPH_STUDIO_URL, {
+            method: 'POST',
+            headers: {
+                ...constants_1.GRAPH_CLI_SHARED_HEADERS,
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'chain_list',
+                params: [],
+            }),
+        });
+        if (!res.ok) {
+            logger("Something went wrong while fetching 'chain_list' from studio HTTP code: %o", res.status);
+            return null;
+        }
+        const result = await res.json();
+        if (result?.result) {
+            logger('chain_list result: %o', result.result);
+            return result.result;
+        }
+        logger("Unable to get result for 'chain_list' from studio: %O", result);
+        return null;
+    }
+    catch (e) {
+        logger('error: %O', e);
+        return null;
+    }
+};
+const DEFAULT_EXAMPLE_SUBGRAPH = 'ethereum-gravatar';
 class InitCommand extends core_1.Command {
     async run() {
-        const { args: { subgraphName, directory }, flags: { protocol, product, studio, node: nodeFlag, 'allow-simple-name': allowSimpleNameFlag, 'from-contract': fromContract, 'contract-name': contractName, 'from-example': fromExample, 'index-events': indexEvents, network, abi: abiPath, 'start-block': startBlock, }, } = await this.parse(InitCommand);
+        const { args: { subgraphName, directory }, flags, } = await this.parse(InitCommand);
+        const { protocol, product, studio, node: nodeFlag, 'allow-simple-name': allowSimpleNameFlag, 'from-contract': fromContract, 'contract-name': contractName, 'from-example': fromExample, 'index-events': indexEvents, 'skip-install': skipInstall, 'skip-git': skipGit, network, abi: abiPath, 'start-block': startBlock, spkg: spkgPath, } = flags;
+        initDebugger('Flags: %O', flags);
+        if (product === 'hosted-service') {
+            this.error('✖ The hosted service is deprecated', { exit: 1 });
+        }
         let { node, allowSimpleName } = (0, node_1.chooseNodeUrl)({
             product,
-            studio,
+            // if we are loading example, we want to ensure we are using studio
+            studio: studio || fromExample !== undefined,
             node: nodeFlag,
             allowSimpleName: allowSimpleNameFlag,
         });
@@ -86,7 +129,16 @@ class InitCommand extends core_1.Command {
         // If all parameters are provided from the command-line,
         // go straight to creating the subgraph from the example
         if (fromExample && subgraphName && directory) {
-            return await initSubgraphFromExample.bind(this)({ fromExample, allowSimpleName, directory, subgraphName, studio, product }, { commands });
+            await initSubgraphFromExample.bind(this)({
+                fromExample,
+                allowSimpleName,
+                directory,
+                subgraphName,
+                skipInstall,
+                skipGit,
+            }, { commands });
+            // Exit with success
+            return this.exit(0);
         }
         // Will be assigned below if ethereum
         let abi;
@@ -122,7 +174,7 @@ class InitCommand extends core_1.Command {
                     }
                 }
             }
-            return await initSubgraphFromContract.bind(this)({
+            await initSubgraphFromContract.bind(this)({
                 protocolInstance,
                 abi,
                 allowSimpleName,
@@ -133,42 +185,57 @@ class InitCommand extends core_1.Command {
                 subgraphName,
                 contractName,
                 node,
-                studio,
-                product,
                 startBlock,
+                spkgPath,
+                skipInstall,
+                skipGit,
             }, { commands, addContract: false });
-        }
-        // Otherwise, take the user through the interactive form
-        const answers = await processInitForm.bind(this)({
-            protocol: protocol,
-            product,
-            studio,
-            node,
-            abi,
-            allowSimpleName,
-            directory,
-            contract: fromContract,
-            indexEvents,
-            fromExample,
-            network,
-            subgraphName,
-            contractName,
-            startBlock,
-        });
-        if (!answers) {
-            this.exit(1);
-            return;
+            // Exit with success
+            return this.exit(0);
         }
         if (fromExample) {
+            const answers = await processFromExampleInitForm.bind(this)({
+                allowSimpleName,
+                subgraphName,
+                directory,
+            });
+            if (!answers) {
+                this.exit(1);
+                return;
+            }
             await initSubgraphFromExample.bind(this)({
+                allowSimpleName,
                 fromExample,
                 subgraphName: answers.subgraphName,
                 directory: answers.directory,
-                studio: answers.studio,
-                product: answers.product,
+                skipInstall,
+                skipGit,
             }, { commands });
         }
         else {
+            // Otherwise, take the user through the interactive form
+            const answers = await processInitForm.bind(this)({
+                protocol: protocol,
+                product,
+                studio,
+                node,
+                abi,
+                abiPath,
+                allowSimpleName,
+                directory,
+                contract: fromContract,
+                indexEvents,
+                fromExample,
+                network,
+                subgraphName,
+                contractName,
+                startBlock,
+                spkgPath,
+            });
+            if (!answers) {
+                this.exit(1);
+                return;
+            }
             ({ node, allowSimpleName } = (0, node_1.chooseNodeUrl)({
                 product: answers.product,
                 studio: answers.studio,
@@ -186,11 +253,14 @@ class InitCommand extends core_1.Command {
                 indexEvents: answers.indexEvents,
                 contractName: answers.contractName,
                 node,
-                studio: answers.studio,
-                product: answers.product,
                 startBlock: answers.startBlock,
+                spkgPath: answers.spkgPath,
+                skipInstall,
+                skipGit,
             }, { commands, addContract: true });
         }
+        // Exit with success
+        this.exit(0);
     }
 }
 InitCommand.description = 'Creates a new subgraph with basic scaffolding.';
@@ -208,10 +278,16 @@ InitCommand.flags = {
     product: core_1.Flags.string({
         summary: 'Selects the product for which to initialize.',
         options: ['subgraph-studio', 'hosted-service'],
+        deprecated: {
+            message: 'In next major version, this flag will be removed. By default we will deploy to the Graph Studio. Learn more about Sunrise of Decentralized Data https://thegraph.com/blog/unveiling-updated-sunrise-decentralized-data/',
+        },
     }),
     studio: core_1.Flags.boolean({
         summary: 'Shortcut for "--product subgraph-studio".',
         exclusive: ['product'],
+        deprecated: {
+            message: 'In next major version, this flag will be removed. By default we will deploy to the Graph Studio. Learn more about Sunrise of Decentralized Data https://thegraph.com/blog/unveiling-updated-sunrise-decentralized-data/',
+        },
     }),
     node: core_1.Flags.string({
         summary: 'Graph node for which to initialize.',
@@ -220,6 +296,9 @@ InitCommand.flags = {
     'allow-simple-name': core_1.Flags.boolean({
         description: 'Use a subgraph name without a prefix.',
         default: false,
+        deprecated: {
+            message: 'In next major version, this flag will be removed. By default we will deploy to the Graph Studio. Learn more about Sunrise of Decentralized Data https://thegraph.com/blog/unveiling-updated-sunrise-decentralized-data/',
+        },
     }),
     'from-contract': core_1.Flags.string({
         description: 'Creates a scaffold based on an existing contract.',
@@ -241,6 +320,17 @@ InitCommand.flags = {
         description: 'Index contract events as entities.',
         dependsOn: ['from-contract'],
     }),
+    'skip-install': core_1.Flags.boolean({
+        summary: 'Skip installing dependencies.',
+        default: false,
+    }),
+    'skip-git': core_1.Flags.boolean({
+        summary: 'Skip initializing a Git repository.',
+        default: false,
+        deprecated: {
+            message: 'In next major version, this flag will be removed. By default we will stop initializing a Git repository.',
+        },
+    }),
     'start-block': core_1.Flags.string({
         helpGroup: 'Scaffold from contract',
         description: 'Block number to start indexing from.',
@@ -254,238 +344,367 @@ InitCommand.flags = {
         // default: '*Download from Etherscan*',
         dependsOn: ['from-contract'],
     }),
+    spkg: core_1.Flags.string({
+        summary: 'Path to the SPKG file',
+    }),
     network: core_1.Flags.string({
         summary: 'Network the contract is deployed to.',
+        description: 'Check https://thegraph.com/docs/en/developing/supported-networks/ for supported networks',
         dependsOn: ['from-contract'],
-        options: [
-            ...availableNetworks.get('ethereum'),
-            ...availableNetworks.get('near'),
-            ...availableNetworks.get('cosmos'),
-        ],
     }),
 };
 exports.default = InitCommand;
-async function processInitForm({ protocol, product, studio, node, abi, allowSimpleName, directory, contract, indexEvents, fromExample, network, subgraphName, contractName, startBlock, }) {
+async function processFromExampleInitForm({ directory: initDirectory, subgraphName: initSubgraphName, allowSimpleName: initAllowSimpleName, }) {
+    try {
+        const { subgraphName } = await gluegun_1.prompt.ask([
+            {
+                type: 'input',
+                name: 'subgraphName',
+                // TODO: is defaulting to studio ok?
+                message: () => 'Subgraph slug',
+                initial: initSubgraphName,
+                validate: name => {
+                    try {
+                        (0, subgraph_1.validateSubgraphName)(name, {
+                            allowSimpleName: initAllowSimpleName,
+                        });
+                        return true;
+                    }
+                    catch (e) {
+                        return `${e.message}
+
+    Examples:
+
+      $ graph init ${os_1.default.userInfo().username}/${name}
+      $ graph init ${name} --allow-simple-name`;
+                    }
+                },
+            },
+        ]);
+        const { directory } = await gluegun_1.prompt.ask([
+            {
+                type: 'input',
+                name: 'directory',
+                message: 'Directory to create the subgraph in',
+                initial: () => initDirectory || (0, subgraph_1.getSubgraphBasename)(subgraphName),
+                validate: value => gluegun_1.filesystem.exists(value || initDirectory || (0, subgraph_1.getSubgraphBasename)(subgraphName))
+                    ? 'Directory already exists'
+                    : true,
+            },
+        ]);
+        return {
+            subgraphName,
+            directory,
+        };
+    }
+    catch (e) {
+        this.error(e, { exit: 1 });
+    }
+}
+async function retryWithPrompt(func) {
+    for (;;) {
+        try {
+            return await func();
+        }
+        catch (_) {
+            const { retry } = await toolbox.prompt.ask({
+                type: 'confirm',
+                name: 'retry',
+                message: 'Do you want to retry?',
+                initial: true,
+            });
+            if (!retry) {
+                break;
+            }
+        }
+    }
+    return undefined;
+}
+async function processInitForm({ protocol: initProtocol, product: initProduct, studio: initStudio, node: initNode, abi: initAbi, abiPath: initAbiPath, directory: initDirectory, contract: initContract, indexEvents: initIndexEvents, fromExample: initFromExample, network: initNetwork, subgraphName: initSubgraphName, contractName: initContractName, startBlock: initStartBlock, allowSimpleName: initAllowSimpleName, spkgPath: initSpkgPath, }) {
     let abiFromEtherscan = undefined;
-    let abiFromFile = undefined;
-    let protocolInstance;
-    let ProtocolContract;
-    let ABI;
-    const questions = [
-        {
+    try {
+        const { protocol } = await gluegun_1.prompt.ask({
             type: 'select',
             name: 'protocol',
             message: 'Protocol',
             choices: protocolChoices,
-            skip: protocolChoices.includes(String(protocol)),
-            result: (value) => {
-                // eslint-disable-next-line -- prettier has problems with ||=
-                protocol = protocol || value;
-                protocolInstance = new protocols_1.default(protocol);
-                return protocol;
-            },
-        },
-        {
-            type: 'select',
-            name: 'product',
-            message: 'Product for which to initialize',
-            choices: ['subgraph-studio', 'hosted-service'],
-            skip: () => protocol === 'arweave' ||
-                protocol === 'cosmos' ||
-                protocol === 'near' ||
-                product === 'subgraph-studio' ||
-                product === 'hosted-service' ||
-                studio !== undefined ||
-                node !== undefined,
-            result: (value) => {
-                // For now we only support NEAR subgraphs in the Hosted Service
-                if (protocol === 'near') {
-                    // Can be overwritten because the question will be skipped (product === undefined)
-                    product = 'hosted-service';
-                    return product;
+            skip: protocolChoices.includes(String(initProtocol)),
+            result: value => {
+                if (initProtocol) {
+                    initDebugger.extend('processInitForm')('initProtocol: %O', initProtocol);
+                    return initProtocol;
                 }
-                if (value == 'subgraph-studio') {
-                    allowSimpleName = true;
-                }
-                product = value;
+                initDebugger.extend('processInitForm')('protocol: %O', value);
                 return value;
             },
-        },
-        {
-            type: 'input',
-            name: 'subgraphName',
-            message: () => (product == 'subgraph-studio' || studio ? 'Subgraph slug' : 'Subgraph name'),
-            initial: subgraphName,
-            validate: (name) => {
-                try {
-                    (0, subgraph_1.validateSubgraphName)(name, { allowSimpleName });
-                    return true;
-                }
-                catch (e) {
-                    return `${e.message}
-
-  Examples:
-
-    $ graph init ${os_1.default.userInfo().username}/${name}
-    $ graph init ${name} --allow-simple-name`;
-                }
-            },
-            result: (value) => {
-                subgraphName = value;
-                return value;
-            },
-        },
-        {
-            type: 'input',
-            name: 'directory',
-            message: 'Directory to create the subgraph in',
-            initial: () => directory ||
-                (0, subgraph_1.getSubgraphBasename)(
-                // @ts-expect-error will be set by previous question
-                subgraphName),
-            validate: (value) => gluegun_1.filesystem.exists(value ||
-                directory ||
-                (0, subgraph_1.getSubgraphBasename)(
-                // @ts-expect-error will be set by previous question
-                subgraphName))
-                ? 'Directory already exists'
-                : true,
-        },
-        {
-            type: 'select',
-            name: 'network',
-            message: () => `${protocolInstance.displayName()} network`,
-            choices: () => {
-                initDebug('Generating list of available networks for protocol "%s" (%M)', protocol, availableNetworks.get(protocol));
-                return (
-                // @ts-expect-error TODO: wait what?
-                availableNetworks
-                    .get(protocol) // Get networks related to the chosen protocol.
-                    .toArray()); // Needed because of gluegun. It can't even receive a JS iterable.
-            },
-            skip: fromExample !== undefined,
-            initial: network || 'mainnet',
-            result: (value) => {
-                network = value;
-                return value;
-            },
-        },
-        // TODO:
-        //
-        // protocols that don't support contract
-        // - arweave
-        // - cosmos
-        {
-            type: 'input',
-            name: 'contract',
-            message: () => {
-                ProtocolContract = protocolInstance.getContract();
-                return `Contract ${ProtocolContract.identifierName()}`;
-            },
-            skip: () => fromExample !== undefined || !protocolInstance.hasContract(),
-            initial: contract,
-            validate: async (value) => {
-                if (fromExample !== undefined || !protocolInstance.hasContract()) {
-                    return true;
-                }
-                // Validate whether the contract is valid
-                const { valid, error } = (0, validation_1.validateContract)(value, ProtocolContract);
-                return valid ? true : error;
-            },
-            result: async (value) => {
-                if (fromExample !== undefined) {
+        });
+        const protocolInstance = new protocols_1.default(protocol);
+        const isSubstreams = protocol === 'substreams';
+        initDebugger.extend('processInitForm')('isSubstreams: %O', isSubstreams);
+        const { product } = await gluegun_1.prompt.ask([
+            {
+                type: 'select',
+                name: 'product',
+                message: 'Product for which to initialize',
+                choices: ['subgraph-studio', 'hosted-service'],
+                skip: protocol === 'arweave' ||
+                    protocol === 'cosmos' ||
+                    protocol === 'near' ||
+                    initProduct === 'subgraph-studio' ||
+                    initProduct === 'hosted-service' ||
+                    initStudio !== undefined ||
+                    initNode !== undefined,
+                result: value => {
+                    if (initProduct)
+                        return initProduct;
+                    if (initStudio)
+                        return 'subgraph-studio';
+                    // For now we only support NEAR subgraphs in the Hosted Service
+                    if (protocol === 'near') {
+                        return 'hosted-service';
+                    }
+                    if (value == 'subgraph-studio') {
+                        initAllowSimpleName = true;
+                    }
                     return value;
-                }
-                ABI = protocolInstance.getABI();
-                // Try loading the ABI from Etherscan, if none was provided
-                if (protocolInstance.hasABIs() && !abi) {
+                },
+            },
+        ]);
+        if (product == 'hosted-service') {
+            this.error('✖ The hosted service is deprecated', { exit: 1 });
+        }
+        const { subgraphName } = await gluegun_1.prompt.ask([
+            {
+                type: 'input',
+                name: 'subgraphName',
+                message: () => (product == 'subgraph-studio' ? 'Subgraph slug' : 'Subgraph name'),
+                initial: initSubgraphName,
+                validate: name => {
                     try {
-                        if (network === 'poa-core') {
-                            // TODO: this variable is never used anywhere, what happens?
-                            // abiFromBlockScout = await loadAbiFromBlockScout(ABI, network, value)
-                        }
-                        else {
-                            abiFromEtherscan = await (0, abi_1.loadAbiFromEtherscan)(ABI, network, value);
-                        }
+                        (0, subgraph_1.validateSubgraphName)(name, {
+                            allowSimpleName: initAllowSimpleName,
+                        });
+                        return true;
                     }
                     catch (e) {
-                        // noop
+                        return `${e.message}
+
+    Examples:
+
+      $ graph init ${os_1.default.userInfo().username}/${name}
+      $ graph init ${name} --allow-simple-name`;
                     }
-                }
-                // If startBlock is not set, try to load it.
-                if (!startBlock) {
-                    try {
+                },
+            },
+        ]);
+        const { directory } = await gluegun_1.prompt.ask([
+            {
+                type: 'input',
+                name: 'directory',
+                message: 'Directory to create the subgraph in',
+                initial: () => initDirectory || (0, subgraph_1.getSubgraphBasename)(subgraphName),
+                validate: value => gluegun_1.filesystem.exists(value || initDirectory || (0, subgraph_1.getSubgraphBasename)(subgraphName))
+                    ? 'Directory already exists'
+                    : true,
+            },
+        ]);
+        let choices = (await AVAILABLE_NETWORKS())?.[product === 'subgraph-studio' ? 'studio' : 'hostedService'];
+        if (!choices) {
+            this.error('Unable to fetch available networks from API. Please report this issue. As a workaround you can pass `--network` flag from the available networks: https://thegraph.com/docs/en/developing/supported-networks', { exit: 1 });
+        }
+        choices = (0, sort_1.sortWithPriority)(choices, ['mainnet']);
+        const { network } = await gluegun_1.prompt.ask([
+            {
+                type: 'select',
+                name: 'network',
+                message: () => `${protocolInstance.displayName()} network`,
+                choices,
+                skip: initNetwork !== undefined,
+                result: value => {
+                    if (initNetwork) {
+                        initDebugger.extend('processInitForm')('initNetwork: %O', initNetwork);
+                        return initNetwork;
+                    }
+                    initDebugger.extend('processInitForm')('network: %O', value);
+                    return value;
+                },
+            },
+        ]);
+        const { contract } = await gluegun_1.prompt.ask([
+            // TODO:
+            // protocols that don't support contract
+            // - arweave
+            // - cosmos
+            {
+                type: 'input',
+                name: 'contract',
+                message: `Contract ${protocolInstance.getContract()?.identifierName()}`,
+                skip: () => initFromExample !== undefined || !protocolInstance.hasContract() || isSubstreams,
+                initial: initContract,
+                validate: async (value) => {
+                    if (initFromExample !== undefined || !protocolInstance.hasContract()) {
+                        return true;
+                    }
+                    const protocolContract = protocolInstance.getContract();
+                    if (!protocolContract) {
+                        return 'Contract not found.';
+                    }
+                    // Validate whether the contract is valid
+                    const { valid, error } = (0, validation_1.validateContract)(value, protocolContract);
+                    return valid ? true : error;
+                },
+                result: async (value) => {
+                    if (initFromExample !== undefined || isSubstreams || initAbiPath) {
+                        return value;
+                    }
+                    const ABI = protocolInstance.getABI();
+                    // Try loading the ABI from Etherscan, if none was provided
+                    if (protocolInstance.hasABIs() && !initAbi) {
+                        if (network === 'poa-core') {
+                            abiFromEtherscan = await retryWithPrompt(() => (0, abi_1.loadAbiFromBlockScout)(ABI, network, value));
+                        }
+                        else {
+                            abiFromEtherscan = await retryWithPrompt(() => (0, abi_1.loadAbiFromEtherscan)(ABI, network, value));
+                        }
+                    }
+                    // If startBlock is not set, try to load it.
+                    if (!initStartBlock) {
                         // Load startBlock for this contract
-                        startBlock = Number(await (0, abi_1.loadStartBlockForContract)(network, value)).toString();
+                        const startBlock = await retryWithPrompt(() => (0, abi_1.loadStartBlockForContract)(network, value));
+                        if (startBlock) {
+                            initStartBlock = Number(startBlock).toString();
+                        }
                     }
-                    catch (error) {
-                        // noop
+                    // If contract name is not set, try to load it.
+                    if (!initContractName) {
+                        // Load contract name for this contract
+                        const contractName = await retryWithPrompt(() => (0, abi_1.loadContractNameForAddress)(network, value));
+                        if (contractName) {
+                            initContractName = contractName;
+                        }
                     }
-                }
-                return value;
+                    return value;
+                },
             },
-        },
-        {
-            type: 'input',
-            name: 'abi',
-            message: 'ABI file (path)',
-            initial: abi,
-            skip: () => !protocolInstance.hasABIs() || fromExample !== undefined || abiFromEtherscan !== undefined,
-            validate: async (value) => {
-                if (fromExample || abiFromEtherscan || !protocolInstance.hasABIs()) {
-                    return true;
-                }
-                try {
-                    abiFromFile = loadAbiFromFile(ABI, value);
-                    return true;
-                }
-                catch (e) {
-                    return e.message;
-                }
+        ]);
+        const { spkg } = await gluegun_1.prompt.ask([
+            {
+                type: 'input',
+                name: 'spkg',
+                message: 'SPKG file (path)',
+                initial: () => initSpkgPath,
+                skip: () => !isSubstreams || !!initSpkgPath,
+                validate: value => gluegun_1.filesystem.exists(initSpkgPath || value) ? true : 'SPKG file does not exist',
             },
-        },
-        {
-            type: 'input',
-            name: 'startBlock',
-            message: 'Start Block',
-            initial: () => startBlock || '0',
-            skip: () => fromExample !== undefined,
-            validate: (value) => parseInt(value) >= 0,
-            result: (value) => {
-                startBlock = value;
-                return value;
+        ]);
+        const { abi: abiFromFile } = await gluegun_1.prompt.ask([
+            {
+                type: 'input',
+                name: 'abi',
+                message: 'ABI file (path)',
+                initial: initAbi,
+                skip: () => !protocolInstance.hasABIs() ||
+                    initFromExample !== undefined ||
+                    abiFromEtherscan !== undefined ||
+                    isSubstreams ||
+                    !!initAbiPath,
+                validate: async (value) => {
+                    if (initFromExample || abiFromEtherscan || !protocolInstance.hasABIs()) {
+                        return true;
+                    }
+                    const ABI = protocolInstance.getABI();
+                    if (initAbiPath) {
+                        try {
+                            loadAbiFromFile(ABI, initAbiPath);
+                            return true;
+                        }
+                        catch (e) {
+                            this.error(e.message);
+                        }
+                    }
+                    try {
+                        loadAbiFromFile(ABI, value);
+                        return true;
+                    }
+                    catch (e) {
+                        this.error(e.message);
+                    }
+                },
+                result: async (value) => {
+                    if (initFromExample || abiFromEtherscan || !protocolInstance.hasABIs()) {
+                        return null;
+                    }
+                    const ABI = protocolInstance.getABI();
+                    if (initAbiPath) {
+                        try {
+                            return loadAbiFromFile(ABI, initAbiPath);
+                        }
+                        catch (e) {
+                            return e.message;
+                        }
+                    }
+                    try {
+                        return loadAbiFromFile(ABI, value);
+                    }
+                    catch (e) {
+                        return e.message;
+                    }
+                },
             },
-        },
-        {
-            type: 'input',
-            name: 'contractName',
-            message: 'Contract Name',
-            initial: contractName || 'Contract',
-            skip: () => fromExample !== undefined || !protocolInstance.hasContract(),
-            validate: (value) => value && value.length > 0,
-            result: (value) => {
-                contractName = value;
-                return value;
+        ]);
+        const { startBlock } = await gluegun_1.prompt.ask([
+            {
+                type: 'input',
+                name: 'startBlock',
+                message: 'Start Block',
+                initial: initStartBlock || '0',
+                skip: () => initFromExample !== undefined || isSubstreams,
+                validate: value => parseInt(value) >= 0,
+                result(value) {
+                    if (initStartBlock)
+                        return initStartBlock;
+                    return value;
+                },
             },
-        },
-        {
-            type: 'confirm',
-            name: 'indexEvents',
-            message: 'Index contract events as entities',
-            initial: true,
-            skip: () => !!indexEvents,
-            result: (value) => {
-                indexEvents = value;
-                return value;
+        ]);
+        const { contractName } = await gluegun_1.prompt.ask([
+            {
+                type: 'input',
+                name: 'contractName',
+                message: 'Contract Name',
+                initial: initContractName || 'Contract' || isSubstreams,
+                skip: () => initFromExample !== undefined || !protocolInstance.hasContract(),
+                validate: value => value && value.length > 0,
+                result(value) {
+                    if (initContractName)
+                        return initContractName;
+                    return value;
+                },
             },
-        },
-    ];
-    try {
-        const answers = await gluegun_1.prompt.ask(questions);
+        ]);
+        const { indexEvents } = await gluegun_1.prompt.ask([
+            {
+                type: 'confirm',
+                name: 'indexEvents',
+                message: 'Index contract events as entities',
+                initial: true,
+                skip: () => !!initIndexEvents || isSubstreams,
+            },
+        ]);
         return {
-            ...answers,
             abi: abiFromEtherscan || abiFromFile,
             protocolInstance,
+            subgraphName,
+            directory,
+            studio: product === 'subgraph-studio',
+            startBlock,
+            fromExample: !!initFromExample,
+            product,
+            network,
+            contractName,
+            contract,
+            indexEvents,
+            spkgPath: spkg,
         };
     }
     catch (e) {
@@ -522,6 +741,22 @@ function revalidateSubgraphName(subgraphName, { allowSimpleName }) {
     $ graph init ${subgraphName} --allow-simple-name`);
     }
 }
+// Inspired from: https://github.com/graphprotocol/graph-tooling/issues/1450#issuecomment-1713992618
+async function isInRepo() {
+    try {
+        const result = await gluegun_1.system.run('git rev-parse --is-inside-work-tree');
+        // It seems like we are returning "true\n" instead of "true".
+        // Don't think it is great idea to check for new line character here.
+        // So best to just check if the result includes "true".
+        return result.includes('true');
+    }
+    catch (err) {
+        if (err.stderr.includes('not a git repository')) {
+            return false;
+        }
+        throw Error(err.stderr);
+    }
+}
 const initRepository = async (directory) => await (0, spinner_1.withSpinner)(`Initialize subgraph repository`, `Failed to initialize subgraph repository`, `Warnings while initializing subgraph repository`, async () => {
     // Remove .git dir in --from-example mode; in --from-contract, we're
     // starting from an empty directory
@@ -529,11 +764,19 @@ const initRepository = async (directory) => await (0, spinner_1.withSpinner)(`In
     if (gluegun_1.filesystem.exists(gitDir)) {
         gluegun_1.filesystem.remove(gitDir);
     }
-    await gluegun_1.system.run('git init', { cwd: directory });
-    await gluegun_1.system.run('git add --all', { cwd: directory });
-    await gluegun_1.system.run('git commit -m "Initial commit"', {
-        cwd: directory,
-    });
+    if (await isInRepo()) {
+        await gluegun_1.system.run('git add --all', { cwd: directory });
+        await gluegun_1.system.run('git commit -m "Initialize subgraph"', {
+            cwd: directory,
+        });
+    }
+    else {
+        await gluegun_1.system.run('git init', { cwd: directory });
+        await gluegun_1.system.run('git add --all', { cwd: directory });
+        await gluegun_1.system.run('git commit -m "Initial commit"', {
+            cwd: directory,
+        });
+    }
     return true;
 });
 const installDependencies = async (directory, commands) => await (0, spinner_1.withSpinner)(`Install dependencies with ${commands.install}`, `Failed to install dependencies`, `Warnings while installing dependencies`, async () => {
@@ -563,7 +806,7 @@ Subgraph ${subgraphName} created in ${relativeDir}
 
 Make sure to visit the documentation on https://thegraph.com/docs/ for further information.`);
 }
-async function initSubgraphFromExample({ fromExample, allowSimpleName, subgraphName, directory, studio, product, }, { commands, }) {
+async function initSubgraphFromExample({ fromExample, allowSimpleName, subgraphName, directory, skipInstall, skipGit, }, { commands, }) {
     // Fail if the subgraph name is invalid
     if (!revalidateSubgraphName.bind(this)(subgraphName, { allowSimpleName })) {
         process.exitCode = 1;
@@ -579,12 +822,16 @@ async function initSubgraphFromExample({ fromExample, allowSimpleName, subgraphN
         const prefix = path_1.default.join(os_1.default.tmpdir(), 'example-subgraph-');
         const tmpDir = fs_1.default.mkdtempSync(prefix);
         try {
-            await gluegun_1.system.run(`git clone http://github.com/graphprotocol/example-subgraphs ${tmpDir}`);
+            await gluegun_1.system.run(`git clone https://github.com/graphprotocol/graph-tooling ${tmpDir}`);
             // If an example is not specified, use the default one
             if (fromExample === undefined || fromExample === true) {
                 fromExample = DEFAULT_EXAMPLE_SUBGRAPH;
             }
-            const exampleSubgraphPath = path_1.default.join(tmpDir, String(fromExample));
+            // Legacy purposes when everything existed in examples repo
+            if (fromExample === 'ethereum/gravatar') {
+                fromExample = DEFAULT_EXAMPLE_SUBGRAPH;
+            }
+            const exampleSubgraphPath = path_1.default.join(tmpDir, 'examples', String(fromExample));
             if (!gluegun_1.filesystem.exists(exampleSubgraphPath)) {
                 return { result: false, error: `Example not found: ${fromExample}` };
             }
@@ -598,17 +845,6 @@ async function initSubgraphFromExample({ fromExample, allowSimpleName, subgraphN
     if (!cloned) {
         this.exit(1);
         return;
-    }
-    try {
-        // It doesn't matter if we changed the URL we clone the YAML,
-        // we'll check it's network anyway. If it's a studio subgraph we're dealing with.
-        const dataSourcesAndTemplates = await DataSourcesExtractor.fromFilePath(path_1.default.join(directory, 'subgraph.yaml'));
-        for (const { network } of dataSourcesAndTemplates) {
-            (0, studio_1.validateStudioNetwork)({ studio, product, network });
-        }
-    }
-    catch (e) {
-        this.error(e.message, { exit: 1 });
     }
     const networkConf = await (0, network_1.initNetworksConfig)(directory, 'address');
     if (networkConf !== true) {
@@ -645,16 +881,20 @@ async function initSubgraphFromExample({ fromExample, allowSimpleName, subgraphN
         return;
     }
     // Initialize a fresh Git repository
-    const repo = await initRepository(directory);
-    if (repo !== true) {
-        this.exit(1);
-        return;
+    if (!skipGit) {
+        const repo = await initRepository(directory);
+        if (repo !== true) {
+            this.exit(1);
+            return;
+        }
     }
     // Install dependencies
-    const installed = await installDependencies(directory, commands);
-    if (installed !== true) {
-        this.exit(1);
-        return;
+    if (!skipInstall) {
+        const installed = await installDependencies(directory, commands);
+        if (installed !== true) {
+            this.exit(1);
+            return;
+        }
     }
     // Run code-generation
     const codegen = await runCodegen(directory, commands.codegen);
@@ -664,7 +904,8 @@ async function initSubgraphFromExample({ fromExample, allowSimpleName, subgraphN
     }
     printNextSteps.bind(this)({ subgraphName, directory }, { commands });
 }
-async function initSubgraphFromContract({ protocolInstance, allowSimpleName, subgraphName, directory, abi, network, contract, indexEvents, contractName, node, studio, product, startBlock, }, { commands, addContract, }) {
+async function initSubgraphFromContract({ protocolInstance, allowSimpleName, subgraphName, directory, abi, network, contract, indexEvents, contractName, node, startBlock, spkgPath, skipInstall, skipGit, }, { commands, addContract, }) {
+    const isSubstreams = protocolInstance.name === 'substreams';
     // Fail if the subgraph name is invalid
     if (!revalidateSubgraphName.bind(this)(subgraphName, { allowSimpleName })) {
         this.exit(1);
@@ -681,15 +922,6 @@ async function initSubgraphFromContract({ protocolInstance, allowSimpleName, sub
         // Fail if the ABI does not contain any events
         this.error(`ABI does not contain any events`, { exit: 1 });
     }
-    // We can validate this before the scaffold because we receive
-    // the network from the form or via command line argument.
-    // We don't need to read the manifest in this case.
-    try {
-        (0, studio_1.validateStudioNetwork)({ studio, product, network });
-    }
-    catch (e) {
-        this.error(e, { exit: 1 });
-    }
     // Scaffold subgraph
     const scaffold = await (0, spinner_1.withSpinner)(`Create subgraph scaffold`, `Failed to create subgraph scaffold`, `Warnings while creating subgraph scaffold`, async (spinner) => {
         const scaffold = await (0, scaffold_1.generateScaffold)({
@@ -702,7 +934,8 @@ async function initSubgraphFromContract({ protocolInstance, allowSimpleName, sub
             indexEvents,
             contractName,
             startBlock,
-            node
+            node,
+            spkgPath,
         }, spinner);
         await (0, scaffold_1.writeScaffold)(scaffold, directory, spinner);
         return true;
@@ -720,25 +953,35 @@ async function initSubgraphFromContract({ protocolInstance, allowSimpleName, sub
         }
     }
     // Initialize a fresh Git repository
-    const repo = await initRepository(directory);
-    if (repo !== true) {
-        this.exit(1);
-        return;
+    if (!skipGit) {
+        const repo = await initRepository(directory);
+        if (repo !== true) {
+            this.exit(1);
+            return;
+        }
     }
-    // Install dependencies
-    const installed = await installDependencies(directory, commands);
-    if (installed !== true) {
-        this.exit(1);
-        return;
+    if (!skipInstall) {
+        // Install dependencies
+        const installed = await installDependencies(directory, commands);
+        if (installed !== true) {
+            this.exit(1);
+            return;
+        }
     }
-    // Run code-generation
-    const codegen = await runCodegen(directory, commands.codegen);
-    if (codegen !== true) {
-        this.exit(1);
-        return;
-    }
-    while (addContract) {
-        addContract = await addAnotherContract.bind(this)({ protocolInstance, directory });
+    // Substreams we have nothing to install or generate
+    if (!isSubstreams) {
+        // Run code-generation
+        const codegen = await runCodegen(directory, commands.codegen);
+        if (codegen !== true) {
+            this.exit(1);
+            return;
+        }
+        while (addContract) {
+            addContract = await addAnotherContract.bind(this)({
+                protocolInstance,
+                directory,
+            });
+        }
     }
     printNextSteps.bind(this)({ subgraphName, directory }, { commands });
 }
@@ -749,7 +992,6 @@ async function addAnotherContract({ protocolInstance, directory, }) {
     });
     const addContractConfirmation = addContractAnswer.toLowerCase() === 'y';
     if (addContractConfirmation) {
-        let abiFromFile = false;
         const ProtocolContract = protocolInstance.getContract();
         let contract = '';
         for (;;) {
@@ -762,34 +1004,13 @@ async function addAnotherContract({ protocolInstance, directory, }) {
             }
             this.log(`✖ ${error}`);
         }
-        const localAbi = await core_1.ux.prompt('\nProvide local ABI path? (y/n)', {
-            required: true,
-            type: 'single',
-        });
-        abiFromFile = localAbi.toLowerCase() === 'y';
-        let abiPath = '';
-        if (abiFromFile) {
-            abiPath = await core_1.ux.prompt('\nABI file (path)', { required: true });
-        }
-        const contractName = await core_1.ux.prompt('\nContract Name', {
-            required: true,
-            default: 'Contract',
-        });
         // Get the cwd before process.chdir in order to switch back in the end of command execution
         const cwd = process.cwd();
         try {
             if (fs_1.default.existsSync(directory)) {
                 process.chdir(directory);
             }
-            const commandLine = [contract, '--contract-name', contractName];
-            if (abiFromFile) {
-                if (abiPath.includes(directory)) {
-                    commandLine.push('--abi', path_1.default.normalize(abiPath.replace(directory, '')));
-                }
-                else {
-                    commandLine.push('--abi', abiPath);
-                }
-            }
+            const commandLine = [contract];
             await add_1.default.run(commandLine);
         }
         catch (e) {

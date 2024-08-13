@@ -350,6 +350,8 @@ class Compiler {
     }
     async writeSubgraphToOutputDirectory(protocol, subgraph) {
         const displayDir = `${this.displayPath(this.options.outputDir)}${toolbox.filesystem.separator}`;
+        // ensure that the output directory exists
+        fs_extra_1.default.mkdirsSync(this.options.outputDir);
         return await (0, spinner_1.withSpinner)(`Write compiled subgraph to ${displayDir}`, `Failed to write compiled subgraph to ${displayDir}`, `Warnings while writing compiled subgraph to ${displayDir}`, async (spinner) => {
             // Copy schema and update its path
             subgraph = subgraph.updateIn(['schema', 'file'], schemaFile => {
@@ -372,7 +374,7 @@ class Compiler {
                         return path_1.default.relative(this.options.outputDir, this._writeSubgraphFile(abiFile, JSON.stringify(abiData.data.toJS(), null, 2), this.sourceDir, this.subgraphDir(this.options.outputDir, dataSource), spinner));
                     })));
                 }
-                if (protocol.name == 'substreams') {
+                if (protocol.name == 'substreams' || protocol.name == 'substreams/triggers') {
                     updatedDataSource = updatedDataSource
                         // Write data source ABIs to the output directory
                         .updateIn(['source', 'package'], (substreamsPackage) => substreamsPackage.update('file', (packageFile) => {
@@ -380,6 +382,9 @@ class Compiler {
                         const packageContent = fs_extra_1.default.readFileSync(packageFile);
                         return path_1.default.relative(this.options.outputDir, this._writeSubgraphFile(packageFile, packageContent, this.sourceDir, this.subgraphDir(this.options.outputDir, dataSource), spinner));
                     }));
+                    if (updatedDataSource.getIn(['mapping', 'file'])) {
+                        updatedDataSource = updatedDataSource.updateIn(['mapping', 'file'], (mappingFile) => path_1.default.relative(this.options.outputDir, path_1.default.resolve(this.sourceDir, mappingFile)));
+                    }
                     return updatedDataSource;
                 }
                 // The mapping file is already being written to the output
@@ -433,12 +438,18 @@ class Compiler {
                 }
             }
             // Upload all mappings
-            if (this.protocol.name === 'substreams') {
+            if (this.protocol.name === 'substreams' || this.protocol.name === 'substreams/triggers') {
                 for (const [i, dataSource] of subgraph.get('dataSources').entries()) {
                     updates.push({
                         keyPath: ['dataSources', i, 'source', 'package', 'file'],
                         value: await this._uploadFileToIPFS(dataSource.getIn(['source', 'package', 'file']), uploadedFiles, spinner),
                     });
+                    if (dataSource.getIn(['mapping', 'file'])) {
+                        updates.push({
+                            keyPath: ['dataSources', i, 'mapping', 'file'],
+                            value: await this._uploadFileToIPFS(dataSource.getIn(['mapping', 'file']), uploadedFiles, spinner),
+                        });
+                    }
                 }
             }
             else {

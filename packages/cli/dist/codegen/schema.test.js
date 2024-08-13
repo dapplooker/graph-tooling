@@ -26,34 +26,36 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const assert_1 = __importDefault(require("assert"));
 const graphql = __importStar(require("graphql/language"));
 const prettier_1 = __importDefault(require("prettier"));
+const vitest_1 = require("vitest");
 const schema_1 = __importDefault(require("../schema"));
 const schema_2 = __importDefault(require("./schema"));
 const typescript_1 = require("./typescript");
-const formatTS = (code) => prettier_1.default.format(code, { parser: 'typescript', semi: false });
+const formatTS = async (code) => await prettier_1.default.format(code, { parser: 'typescript', semi: false });
 const createSchemaCodeGen = (schema) => new schema_2.default(new schema_1.default('', schema, graphql.parse(schema)));
-const testEntity = (generatedTypes, expectedEntity) => {
+const testEntity = async (generatedTypes, expectedEntity) => {
     const entity = generatedTypes.find(type => type.name === expectedEntity.name);
-    expect(entity instanceof typescript_1.Class).toBe(true);
-    expect(entity.extends).toBe('Entity');
-    expect(entity.export).toBe(true);
+    (0, vitest_1.expect)(entity instanceof typescript_1.Class).toBe(true);
+    (0, vitest_1.expect)(entity.extends).toBe('Entity');
+    (0, vitest_1.expect)(entity.export).toBe(true);
     const { members, methods } = entity;
-    expect(members).toStrictEqual(expectedEntity.members);
+    (0, vitest_1.expect)(members).toStrictEqual(expectedEntity.members);
     for (const expectedMethod of expectedEntity.methods) {
         const method = methods.find((method) => method.name === expectedMethod.name);
         // eslint-disable-next-line @typescript-eslint/no-unused-expressions
         expectedMethod.static
-            ? expect(method instanceof typescript_1.StaticMethod).toBe(true)
-            : expect(method instanceof typescript_1.Method).toBe(true);
-        expect(method.params).toStrictEqual(expectedMethod.params);
-        expect(method.returnType).toStrictEqual(expectedMethod.returnType);
-        expect(formatTS(method.body)).toBe(formatTS(expectedMethod.body));
+            ? (0, vitest_1.expect)(method instanceof typescript_1.StaticMethod).toBe(true)
+            : (0, vitest_1.expect)(method instanceof typescript_1.Method).toBe(true);
+        (0, vitest_1.expect)(method.params).toStrictEqual(expectedMethod.params);
+        (0, vitest_1.expect)(method.returnType).toStrictEqual(expectedMethod.returnType);
+        (0, vitest_1.expect)(await formatTS(method.body)).toBe(await formatTS(expectedMethod.body));
     }
-    expect(methods.length).toBe(expectedEntity.methods.length);
+    (0, vitest_1.expect)(methods.length).toBe(expectedEntity.methods.length);
 };
-describe('Schema code generator', () => {
-    test('Should generate nothing for non entity types', () => {
+vitest_1.describe.concurrent('Schema code generator', () => {
+    (0, vitest_1.test)('Should generate nothing for non entity types', () => {
         const codegen = createSchemaCodeGen(`
       type Foo {
         foobar: Int
@@ -63,9 +65,9 @@ describe('Schema code generator', () => {
         barfoo: Int
       }
     `);
-        expect(codegen.generateTypes().length).toBe(0);
+        (0, vitest_1.expect)(codegen.generateTypes().length).toBe(0);
     });
-    describe('Should generate correct classes for each entity', () => {
+    (0, vitest_1.describe)('Should generate correct classes for each entity', () => {
         const codegen = createSchemaCodeGen(`
       # just to be sure nothing will be generated from non-entity types alongside regular ones
       type Foo {
@@ -86,6 +88,10 @@ describe('Schema code generator', () => {
 
         # derivedFrom
         wallets: [Wallet!] @derivedFrom(field: "account")
+
+        # New scalars
+        int8: Int8!
+        timestamp: Timestamp!
       }
 
       type Wallet @entity {
@@ -95,14 +101,14 @@ describe('Schema code generator', () => {
       }
     `);
         const generatedTypes = codegen.generateTypes();
-        test('Foo is NOT an entity', () => {
+        (0, vitest_1.test)('Foo is NOT an entity', () => {
             const foo = generatedTypes.find((type) => type.name === 'Foo');
-            expect(foo).toBe(undefined);
+            (0, vitest_1.expect)(foo).toBe(undefined);
             // Account and Wallet
-            expect(generatedTypes.length).toBe(2);
+            (0, vitest_1.expect)(generatedTypes.length).toBe(2);
         });
-        test('Account is an entity with the correct methods', () => {
-            testEntity(generatedTypes, {
+        (0, vitest_1.test)('Account is an entity with the correct methods', async () => {
+            await testEntity(generatedTypes, {
                 name: 'Account',
                 members: [],
                 methods: [
@@ -274,23 +280,58 @@ describe('Schema code generator', () => {
             `,
                     },
                     {
+                        name: 'get int8',
+                        params: [],
+                        returnType: new typescript_1.NamedType('i64'),
+                        body: `let value = this.get('int8')
+            if (!value || value.kind == ValueKind.NULL) {
+              return 0
+            } else {
+              return value.toI64()
+            }
+            `,
+                    },
+                    {
+                        name: 'set int8',
+                        params: [new typescript_1.Param('value', new typescript_1.NamedType('i64'))],
+                        returnType: undefined,
+                        body: `
+              this.set('int8', Value.fromI64(value))
+            `,
+                    },
+                    {
+                        name: 'get timestamp',
+                        params: [],
+                        returnType: new typescript_1.NamedType('i64'),
+                        body: `let value = this.get('timestamp')
+            if (!value || value.kind == ValueKind.NULL) {
+              return 0
+            } else {
+              return value.toTimestamp()
+            }
+            `,
+                    },
+                    {
+                        name: 'set timestamp',
+                        params: [new typescript_1.Param('value', new typescript_1.NamedType('i64'))],
+                        returnType: undefined,
+                        body: `
+              this.set('timestamp', Value.fromTimestamp(value))
+            `,
+                    },
+                    {
                         name: 'get wallets',
                         params: [],
-                        returnType: new typescript_1.NullableType(new typescript_1.ArrayType(new typescript_1.NamedType('string'))),
+                        returnType: new typescript_1.NamedType('WalletLoader'),
                         body: `
-              let value = this.get('wallets')
-              if (!value || value.kind == ValueKind.NULL) {
-                return null
-              } else {
-                return value.toStringArray()
-              }
+              return new WalletLoader("Account", this.get('id')!.toString(), "wallets") 
             `,
                     },
                 ],
             });
         });
-        test('Wallet is an entity with the correct methods', () => {
-            testEntity(generatedTypes, {
+        (0, vitest_1.test)('Wallet is an entity with the correct methods', async () => {
+            await testEntity(generatedTypes, {
                 name: 'Wallet',
                 members: [],
                 methods: [
@@ -400,7 +441,7 @@ describe('Schema code generator', () => {
             });
         });
     });
-    test('Should handle references with Bytes id types', () => {
+    (0, vitest_1.test)('Should handle references with Bytes id types', async () => {
         const codegen = createSchemaCodeGen(`
     interface Employee {
       id: Bytes!
@@ -410,16 +451,18 @@ describe('Schema code generator', () => {
     type Worker implements Employee @entity {
       id: Bytes!
       name: String!
+      tasks: [Task!]
    }
 
     type Task @entity {
       id: Bytes!
       employee: Employee!
+      workers: [Worker!] @derivedFrom(field: "tasks")
       worker: Worker!
    }
 `);
         const generatedTypes = codegen.generateTypes();
-        testEntity(generatedTypes, {
+        await testEntity(generatedTypes, {
             name: 'Task',
             members: [],
             methods: [
@@ -512,7 +555,115 @@ describe('Schema code generator', () => {
                     returnType: undefined,
                     body: "\n      this.set('worker', Value.fromBytes(value))\n    ",
                 },
+                {
+                    name: 'get workers',
+                    params: [],
+                    returnType: new typescript_1.NamedType('WorkerLoader'),
+                    body: "\n      return new WorkerLoader('Task', this.get('id')!.toBytes().toHexString(), 'workers')\n    ",
+                },
             ],
         });
+    });
+    (0, vitest_1.test)('get related method for WithBytes entity', async () => {
+        const codegen = createSchemaCodeGen(`
+      type WithBytes @entity {
+        id: Bytes!
+        related: [RelatedBytes!]! @derivedFrom(field: "related")
+      }
+      
+      type RelatedBytes @entity {
+        id: ID!
+        related: WithBytes!
+      }
+    `);
+        const generatedTypes = codegen.generateTypes();
+        await testEntity(generatedTypes, {
+            name: 'WithBytes',
+            members: [],
+            methods: [
+                {
+                    name: 'constructor',
+                    params: [new typescript_1.Param('id', new typescript_1.NamedType('Bytes'))],
+                    returnType: undefined,
+                    body: `
+          super()
+          this.set('id', Value.fromBytes(id));`,
+                },
+                {
+                    name: 'save',
+                    params: [],
+                    returnType: new typescript_1.NamedType('void'),
+                    body: `
+            let id = this.get('id');
+            assert(id != null, 'Cannot save WithBytes entity without an ID');
+            if (id) {
+              assert(id.kind == ValueKind.BYTES, \`Entities of type WithBytes must have an ID of type Bytes but the id '\${id.displayData()}' is of type \${id.displayKind()}\`);
+              store.set('WithBytes', id.toBytes().toHexString(), this);
+            }
+          `,
+                },
+                {
+                    name: 'load',
+                    static: true,
+                    params: [new typescript_1.Param('id', new typescript_1.NamedType('Bytes'))],
+                    returnType: new typescript_1.NullableType(new typescript_1.NamedType('WithBytes')),
+                    body: `return changetype<WithBytes | null>(store.get('WithBytes', id.toHexString()));`,
+                },
+                {
+                    name: 'loadInBlock',
+                    static: true,
+                    params: [new typescript_1.Param('id', new typescript_1.NamedType('Bytes'))],
+                    returnType: new typescript_1.NullableType(new typescript_1.NamedType('WithBytes')),
+                    body: `return changetype<WithBytes | null>(store.get_in_block('WithBytes', id.toHexString()));`,
+                },
+                {
+                    name: 'get id',
+                    params: [],
+                    returnType: new typescript_1.NamedType('Bytes'),
+                    body: `let value = this.get("id")
+          if (!value || value.kind == ValueKind.NULL) {
+            throw new Error("Cannot return null for a required field.")
+          } else {
+            return value.toBytes()
+          }
+          `,
+                },
+                {
+                    name: 'set id',
+                    params: [new typescript_1.Param('value', new typescript_1.NamedType('Bytes'))],
+                    returnType: undefined,
+                    body: `this.set('id', Value.fromBytes(value));`,
+                },
+                {
+                    name: 'get related',
+                    params: [],
+                    returnType: new typescript_1.NamedType('RelatedBytesLoader'),
+                    body: `return new RelatedBytesLoader('WithBytes', this.get('id')!.toBytes().toHexString(), 'related');`,
+                },
+                // Add any additional getters and setters for other fields if necessary
+            ],
+        });
+    });
+    (0, vitest_1.test)('no derived loader for interface', () => {
+        const codegen = createSchemaCodeGen(`
+    interface IExample {
+      id: ID! 
+      main: Main!
+      num: Int!
+    }
+    
+    type Example1 implements IExample @entity {
+      id: ID! 
+      main: Main!
+      num: Int!
+    }
+    
+    type Main @entity {
+      id: ID!
+      examples: [IExample!]! @derivedFrom(field: "main")
+    }
+`);
+        const generateDerivedLoaders = codegen.generateDerivedLoaders().filter(Boolean);
+        (0, assert_1.default)(generateDerivedLoaders.length === 0);
     });
 });

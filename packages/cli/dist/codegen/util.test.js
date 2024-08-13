@@ -1,19 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const vitest_1 = require("vitest");
 const util_1 = require("./util");
-describe('Codegen utilities', () => {
-    test('Name disambiguation', () => {
-        expect((0, util_1.disambiguateNames)({
+vitest_1.describe.concurrent('Codegen utilities', () => {
+    (0, vitest_1.test)('Name disambiguation', () => {
+        (0, vitest_1.expect)((0, util_1.disambiguateNames)({
             values: ['a', 'b', 'c'],
             getName: x => x,
             setName: (_x, name) => name,
         })).toEqual(['a', 'b', 'c']);
-        expect((0, util_1.disambiguateNames)({
+        (0, vitest_1.expect)((0, util_1.disambiguateNames)({
             values: ['a', 'a', 'a'],
             getName: x => x,
             setName: (_x, name) => name,
         })).toEqual(['a', 'a1', 'a2']);
-        expect((0, util_1.disambiguateNames)({
+        (0, vitest_1.expect)((0, util_1.disambiguateNames)({
             values: [
                 { name: 'ExampleEvent', inputs: [] },
                 { name: 'ExampleEvent', inputs: [{ type: 'uint256' }] },
@@ -30,13 +31,13 @@ describe('Codegen utilities', () => {
             { name: 'ExampleEvent2', inputs: [{ type: 'uint96' }] },
         ]);
     });
-    test('Tuple unrolling', () => {
-        expect((0, util_1.unrollTuple)({
+    (0, vitest_1.test)('Tuple unrolling', () => {
+        (0, vitest_1.expect)((0, util_1.unrollTuple)({
             value: { type: 'tuple', name: 'value', components: [] },
             path: ['value'],
             index: 0,
         })).toEqual([]);
-        expect((0, util_1.unrollTuple)({
+        (0, vitest_1.expect)((0, util_1.unrollTuple)({
             value: {
                 type: 'tuple',
                 name: 'value',
@@ -45,7 +46,7 @@ describe('Codegen utilities', () => {
             path: ['value'],
             index: 0,
         })).toEqual([{ path: ['value', 'a'], type: 'string' }]);
-        expect((0, util_1.unrollTuple)({
+        (0, vitest_1.expect)((0, util_1.unrollTuple)({
             value: {
                 type: 'tuple',
                 name: 'value',
@@ -60,7 +61,7 @@ describe('Codegen utilities', () => {
             { path: ['value', 'a'], type: 'string' },
             { path: ['value', 'b'], type: 'uint256' },
         ]);
-        expect((0, util_1.unrollTuple)({
+        (0, vitest_1.expect)((0, util_1.unrollTuple)({
             value: {
                 type: 'tuple',
                 name: 'value',

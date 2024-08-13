@@ -3,7 +3,7 @@ import Protocol from '../protocols';
 import ABI from '../protocols/ethereum/abi';
 import { Spinner } from './spinner';
 export declare const generateDataSource: (protocol: Protocol, contractName: string, network: string, contractAddress: string, abi: ABI, startBlock?: string) => Promise<Map<unknown, unknown>>;
-export declare const generateScaffold: ({ protocolInstance, abi, contract, network, subgraphName, fromContracts, etherscanApikey, indexEvents, contractName, startBlock, node, }: {
+export declare const generateScaffold: ({ protocolInstance, abi, contract, network, subgraphName, fromContracts, etherscanApikey, indexEvents, contractName, startBlock, node, spkgPath, }: {
     protocolInstance: Protocol;
     abi: ABI;
     contract: string;
@@ -15,13 +15,23 @@ export declare const generateScaffold: ({ protocolInstance, abi, contract, netwo
     contractName?: string | undefined;
     startBlock?: string | undefined;
     node?: string | undefined;
+    spkgPath?: string | undefined;
 }, spinner: Spinner) => Promise<{
+    'subgraph.yaml': string;
+    'schema.graphql': string;
+    'package.json': string;
+    '.gitignore': string;
+    'tsconfig.json'?: undefined;
+    src?: undefined;
+    abis?: undefined;
+} | {
     'package.json': string;
     'subgraph.yaml': string;
     'schema.graphql': string;
     'tsconfig.json': string;
     src: {};
     abis: {};
+    '.gitignore'?: undefined;
 }>;
 export declare const writeScaffold: (scaffold: any, directory: string, spinner: Spinner) => Promise<void>;
 export declare const writeABI: (abi: ABI, contractName: string) => Promise<void>;

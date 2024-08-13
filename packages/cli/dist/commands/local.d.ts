@@ -13,6 +13,7 @@ export default class LocalCommand extends Command {
         'standalone-node': import("@oclif/core/lib/interfaces").OptionFlag<string | undefined, import("@oclif/core/lib/interfaces/parser").CustomOptions>;
         'standalone-node-args': import("@oclif/core/lib/interfaces").OptionFlag<string | undefined, import("@oclif/core/lib/interfaces/parser").CustomOptions>;
         'skip-wait-for-ipfs': import("@oclif/core/lib/interfaces").BooleanFlag<boolean>;
+        'skip-wait-for-ethereum': import("@oclif/core/lib/interfaces").BooleanFlag<boolean>;
         'skip-wait-for-etherium': import("@oclif/core/lib/interfaces").BooleanFlag<boolean>;
         'skip-wait-for-postgres': import("@oclif/core/lib/interfaces").BooleanFlag<boolean>;
         timeout: import("@oclif/core/lib/interfaces").OptionFlag<number, import("@oclif/core/lib/interfaces/parser").CustomOptions>;

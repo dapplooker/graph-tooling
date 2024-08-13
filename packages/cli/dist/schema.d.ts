@@ -1,5 +1,5 @@
-import SchemaCodeGenerator from './codegen/schema';
 import type { DocumentNode } from 'graphql/language';
+import SchemaCodeGenerator from './codegen/schema';
 export default class Schema {
     filename: string;
     document: string;

@@ -192,7 +192,7 @@ const ASSEMBLYSCRIPT_TO_ETHEREUM_VALUE = [
         /^tuple\[([0-9]+)?\]$/,
         (code) => `ethereum.Value.fromTupleArray(${code})`,
     ],
-    // Multi dimentional arrays
+    // Multi dimensional arrays
     [
         'Array<Array<Address>>',
         /^address\[([0-9]+)?\]\[([0-9]+)?\]$/,
@@ -257,6 +257,8 @@ const VALUE_TO_ASSEMBLYSCRIPT = [
     ['[Bytes]', 'Array<Address>', (code) => `${code}.toAddressArray()`],
     ['[Boolean]', 'Array<boolean>', (code) => `${code}.toBooleanArray()`],
     ['[Int]', 'Array<i32>', (code) => `${code}.toI32Array()`],
+    ['[Int8]', 'Array<i64>', (code) => `${code}.toI64Array()`],
+    ['[Timestamp]', 'Array<i64>', (code) => `${code}.toTimestampArray()`],
     ['[BigInt]', 'Array<BigInt>', (code) => `${code}.toBigIntArray()`],
     ['[ID]', 'Array<string>', (code) => `${code}.toStringArray()`],
     ['[String]', 'Array<string>', (code) => `${code}.toStringArray()`],
@@ -266,10 +268,12 @@ const VALUE_TO_ASSEMBLYSCRIPT = [
     ['Bytes', 'Bytes', (code) => `${code}.toBytes()`],
     ['Boolean', 'boolean', (code) => `${code}.toBoolean()`],
     ['Int', 'i32', (code) => `${code}.toI32()`],
+    ['Int8', 'i64', (code) => `${code}.toI64()`],
     ['BigInt', 'BigInt', (code) => `${code}.toBigInt()`],
     ['ID', 'string', (code) => `${code}.toString()`],
     ['String', 'string', (code) => `${code}.toString()`],
     ['BigDecimal', 'BigDecimal', (code) => `${code}.toBigDecimal()`],
+    ['Timestamp', 'i64', (code) => `${code}.toTimestamp()`],
     [/.*/, 'string', (code) => `${code}.toString()`],
 ];
 /**
@@ -285,6 +289,8 @@ const ASSEMBLYSCRIPT_TO_VALUE = [
     ['Array<Array<Bytes>>', '[[Bytes]]', (code) => `Value.fromBytesMatrix(${code})`],
     ['Array<Array<boolean>>', '[[Boolean]]', (code) => `Value.fromBooleanMatrix(${code})`],
     ['Array<Array<i32>>', '[[Int]]', (code) => `Value.fromI32Matrix(${code})`],
+    ['Array<Array<i64>>', '[[Int8]]', (code) => `Value.fromI64Matrix(${code})`],
+    ['Array<Array<i64>>', '[[Timestamp]]', (code) => `Value.fromTimestampMatrix(${code})`],
     ['Array<Array<BigInt>>', '[[BigInt]]', (code) => `Value.fromBigIntMatrix(${code})`],
     ['Array<Array<string>>', '[[String]]', (code) => `Value.fromStringMatrix(${code})`],
     ['Array<Array<string>>', '[[ID]]', (code) => `Value.fromStringMatrix(${code})`],
@@ -295,11 +301,14 @@ const ASSEMBLYSCRIPT_TO_VALUE = [
     ],
     ['Array<Array<string>>', /\[\[.*\]\]/, (code) => `Value.fromStringMatrix(${code})`],
     ['Array<Array<string | null>>', null, (code) => `Value.fromStringMatrix(${code})`],
+    ['Array<ethereum.Tuple>', '[Bytes]', (code) => `Value.fromBytesArray(${code})`],
     // Arrays
     ['Array<Address>', '[Bytes]', (code) => `Value.fromBytesArray(${code})`],
     ['Array<Bytes>', '[Bytes]', (code) => `Value.fromBytesArray(${code})`],
     ['Array<boolean>', '[Boolean]', (code) => `Value.fromBooleanArray(${code})`],
     ['Array<i32>', '[Int]', (code) => `Value.fromI32Array(${code})`],
+    ['Array<i64>', '[Int8]', (code) => `Value.fromI64Array(${code})`],
+    ['Array<i64>', '[Timestamp]', (code) => `Value.fromTimestampArray(${code})`],
     ['Array<BigInt>', '[BigInt]', (code) => `Value.fromBigIntArray(${code})`],
     ['Array<string>', '[String]', (code) => `Value.fromStringArray(${code})`],
     ['Array<string>', '[ID]', (code) => `Value.fromStringArray(${code})`],
@@ -311,6 +320,8 @@ const ASSEMBLYSCRIPT_TO_VALUE = [
     ['Bytes', 'Bytes', (code) => `Value.fromBytes(${code})`],
     ['boolean', 'Boolean', (code) => `Value.fromBoolean(${code})`],
     ['i32', 'Int', (code) => `Value.fromI32(${code})`],
+    ['i64', 'Int8', (code) => `Value.fromI64(${code})`],
+    ['i64', 'Timestamp', (code) => `Value.fromTimestamp(${code})`],
     ['BigInt', 'BigInt', (code) => `Value.fromBigInt(${code})`],
     ['string', 'String', (code) => `Value.fromString(${code})`],
     ['string', 'ID', (code) => `Value.fromString(${code})`],

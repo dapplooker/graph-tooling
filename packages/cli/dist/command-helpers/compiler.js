@@ -31,6 +31,7 @@ const url_1 = require("url");
 const toolbox = __importStar(require("gluegun"));
 const ipfs_http_client_1 = require("ipfs-http-client");
 const compiler_1 = __importDefault(require("../compiler"));
+const constants_1 = require("../constants");
 /**
  * Appends /api/v0 to the end of a The Graph IPFS URL
  */
@@ -61,7 +62,13 @@ The IPFS URL must be of the following format: http(s)://host[:port]/[path]`);
     }
     // Connect to the IPFS node (if a node address was provided)
     const ipfsClient = ipfs
-        ? (0, ipfs_http_client_1.create)({ url: appendApiVersionForGraph(ipfs.toString()), headers })
+        ? (0, ipfs_http_client_1.create)({
+            url: appendApiVersionForGraph(ipfs.toString()),
+            headers: {
+                ...headers,
+                ...constants_1.GRAPH_CLI_SHARED_HEADERS,
+            },
+        })
         : undefined;
     return new compiler_1.default({
         ipfs: ipfsClient,

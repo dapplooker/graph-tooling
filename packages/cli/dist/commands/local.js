@@ -7,17 +7,18 @@ const child_process_1 = require("child_process");
 const http_1 = __importDefault(require("http"));
 const net_1 = __importDefault(require("net"));
 const path_1 = __importDefault(require("path"));
-const core_1 = require("@oclif/core");
 const docker_compose_1 = __importDefault(require("docker-compose"));
 const gluegun_1 = require("gluegun");
 const strip_ansi_1 = __importDefault(require("strip-ansi"));
 const tmp_promise_1 = __importDefault(require("tmp-promise"));
+const core_1 = require("@oclif/core");
 const spinner_1 = require("../command-helpers/spinner");
 // Clean up temporary files even when an uncaught exception occurs
 tmp_promise_1.default.setGracefulCleanup();
 class LocalCommand extends core_1.Command {
     async run() {
-        const { args: { 'local-command': testCommand }, flags: { 'compose-file': composeFileFlag, 'ethereum-logs': ethereumLogsFlag, 'node-image': nodeImage, 'node-logs': nodeLogsFlag, 'skip-wait-for-etherium': skipWaitForEthereum, 'skip-wait-for-ipfs': skipWaitForIpfs, 'skip-wait-for-postgres': skipWaitForPostgres, 'standalone-node': standaloneNode, 'standalone-node-args': standaloneNodeArgs, timeout, }, } = await this.parse(LocalCommand);
+        const { args: { 'local-command': testCommand }, flags: { 'compose-file': composeFileFlag, 'ethereum-logs': ethereumLogsFlag, 'node-image': nodeImage, 'node-logs': nodeLogsFlag, 'skip-wait-for-etherium': skipWaitForEthereumTypo, 'skip-wait-for-ethereum': skipWaitForEthereumGood, 'skip-wait-for-ipfs': skipWaitForIpfs, 'skip-wait-for-postgres': skipWaitForPostgres, 'standalone-node': standaloneNode, 'standalone-node-args': standaloneNodeArgs, timeout, }, } = await this.parse(LocalCommand);
+        const skipWaitForEthereum = skipWaitForEthereumTypo || skipWaitForEthereumGood;
         // Obtain the Docker Compose file for services that the tests run against
         const composeFile = composeFileFlag ||
             path_1.default.join(__dirname, '..', '..', 'resources', 'test', standaloneNode ? 'docker-compose-standalone-node.yml' : 'docker-compose.yml');
@@ -25,7 +26,10 @@ class LocalCommand extends core_1.Command {
             this.error(`Docker Compose file "${composeFile}" not found`, { exit: 1 });
         }
         // Create temporary directory to operate in
-        const { path: tempdir } = await tmp_promise_1.default.dir({ prefix: 'graph-test', unsafeCleanup: true });
+        const { path: tempdir } = await tmp_promise_1.default.dir({
+            prefix: 'graph-test',
+            unsafeCleanup: true,
+        });
         try {
             await configureTestEnvironment(tempdir, composeFile, nodeImage);
         }
@@ -170,8 +174,15 @@ LocalCommand.flags = {
     'skip-wait-for-ipfs': core_1.Flags.boolean({
         summary: "Don't wait for IPFS to be up at localhost:15001",
     }),
+    'skip-wait-for-ethereum': core_1.Flags.boolean({
+        summary: "Don't wait for Ethereum to be up at localhost:18545",
+    }),
+    // TODO: Remove in next major release
     'skip-wait-for-etherium': core_1.Flags.boolean({
         summary: "Don't wait for Ethereum to be up at localhost:18545",
+        deprecated: {
+            message: 'Use --skip-wait-for-ethereum instead',
+        },
     }),
     'skip-wait-for-postgres': core_1.Flags.boolean({
         summary: "Don't wait for Postgres to be up at localhost:15432",

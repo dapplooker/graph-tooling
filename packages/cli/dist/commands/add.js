@@ -26,10 +26,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const core_1 = require("@oclif/core");
-const errors_1 = require("@oclif/core/lib/errors");
 const gluegun_1 = require("gluegun");
 const immutable_1 = __importDefault(require("immutable"));
+const core_1 = require("@oclif/core");
+const errors_1 = require("@oclif/core/lib/errors");
 const abi_1 = require("../command-helpers/abi");
 const DataSourcesExtractor = __importStar(require("../command-helpers/data-sources"));
 const network_1 = require("../command-helpers/network");
@@ -40,13 +40,14 @@ const abi_2 = __importDefault(require("../protocols/ethereum/abi"));
 const subgraph_1 = __importDefault(require("../subgraph"));
 class AddCommand extends core_1.Command {
     async run() {
-        const { args: { address, 'subgraph-manifest': manifestPath }, flags: { abi, 'contract-name': contractName, 'merge-entities': mergeEntities, 'network-file': networksFile, 'start-block': startBlockFlag, }, } = await this.parse(AddCommand);
+        const { args: { address, 'subgraph-manifest': manifestPath }, flags: { abi, 'contract-name': contractNameFlag, 'merge-entities': mergeEntities, 'network-file': networksFile, 'start-block': startBlockFlag, }, } = await this.parse(AddCommand);
         const dataSourcesAndTemplates = await DataSourcesExtractor.fromFilePath(manifestPath);
         const protocol = protocols_1.default.fromDataSources(dataSourcesAndTemplates);
         const manifest = await subgraph_1.default.load(manifestPath, { protocol });
         const network = manifest.result.getIn(['dataSources', 0, 'network']);
         const result = manifest.result.asMutable();
         let startBlock = startBlockFlag;
+        let contractName = contractNameFlag;
         const entities = getEntities(manifest);
         const contractNames = getContractNames(manifest);
         if (contractNames.includes(contractName)) {
@@ -66,8 +67,44 @@ class AddCommand extends core_1.Command {
             startBlock || (startBlock = Number(await (0, abi_1.loadStartBlockForContract)(network, address)).toString());
         }
         catch (error) {
-            // If we can't get the start block, we'll just leave it out of the manifest
-            // TODO: Ask the user for the start block
+            // we cannot ask user to do prompt in test environment
+            if (process.env.NODE_ENV !== 'test') {
+                // If we can't get the start block, we'll just leave it out of the manifest
+                const { startBlock: userInputStartBlock } = await gluegun_1.prompt.ask([
+                    {
+                        type: 'input',
+                        name: 'startBlock',
+                        message: 'Start Block',
+                        initial: '0',
+                        validate: value => parseInt(value) >= 0,
+                        result(value) {
+                            return value;
+                        },
+                    },
+                ]);
+                startBlock = userInputStartBlock;
+            }
+        }
+        try {
+            contractName = await (0, abi_1.loadContractNameForAddress)(network, address);
+        }
+        catch (error) {
+            // not asking user to do prompt in test environment
+            if (process.env.NODE_ENV !== 'test') {
+                const { contractName: userInputContractName } = await gluegun_1.prompt.ask([
+                    {
+                        type: 'input',
+                        name: 'contractName',
+                        message: 'Contract Name',
+                        initial: 'Contract',
+                        validate: value => value && value.length > 0,
+                        result(value) {
+                            return value;
+                        },
+                    },
+                ]);
+                contractName = userInputContractName;
+            }
         }
         await (0, scaffold_1.writeABI)(ethabi, contractName);
         const { collisionEntities, onlyCollisions, abiData } = updateEventNamesOnCollision(ethabi, entities, contractName, mergeEntities);
@@ -90,7 +127,9 @@ class AddCommand extends core_1.Command {
         result.set('dataSources', dataSources.push(dataSource));
         await subgraph_1.default.write(result, manifestPath);
         // Update networks.json
-        await (0, network_1.updateNetworksFile)(network, contractName, address, networksFile);
+        if (gluegun_1.filesystem.exists(networksFile)) {
+            await (0, network_1.updateNetworksFile)(network, contractName, address, networksFile);
+        }
         // Detect Yarn and/or NPM
         const yarn = gluegun_1.system.which('yarn');
         const npm = gluegun_1.system.which('npm');

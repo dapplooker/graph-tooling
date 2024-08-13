@@ -1,6 +1,6 @@
+import type { DefinitionNode, FieldDefinitionNode, InterfaceTypeDefinitionNode, NamedTypeNode, ObjectTypeDefinitionNode, TypeNode } from 'graphql/language';
 import Schema from '../schema';
 import * as tsCodegen from './typescript';
-import type { DefinitionNode, FieldDefinitionNode, InterfaceTypeDefinitionNode, NamedTypeNode, ObjectTypeDefinitionNode, TypeNode } from 'graphql/language';
 declare class IdField {
     static BYTES: symbol;
     static STRING: symbol;
@@ -21,13 +21,20 @@ export default class SchemaCodeGenerator {
     constructor(schema: Schema);
     generateModuleImports(): tsCodegen.ModuleImports[];
     generateTypes(): Array<tsCodegen.Class>;
+    generateDerivedLoaders(): any[];
     _isEntityTypeDefinition(def: DefinitionNode): def is ObjectTypeDefinitionNode;
+    _isDerivedField(field: FieldDefinitionNode | undefined): boolean;
     _isInterfaceDefinition(def: DefinitionNode): def is InterfaceTypeDefinitionNode;
     _generateEntityType(def: ObjectTypeDefinitionNode): tsCodegen.Class;
+    _generateDerivedLoader(typeName: string): any;
+    _getTypeNameForField(gqlType: TypeNode): string;
     _generateConstructor(_entityName: string, fields: readonly FieldDefinitionNode[] | undefined): tsCodegen.Method;
     _generateStoreMethods(entityName: string, idField: IdField): Array<tsCodegen.Method | tsCodegen.StaticMethod>;
     _generateEntityFieldMethods(entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode): Array<tsCodegen.Method>;
-    _generateEntityFieldGetter(_entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode): tsCodegen.Method;
+    _generateEntityFieldGetter(_entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode): tsCodegen.Method | null;
+    _generateDerivedFieldGetter(entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode): tsCodegen.Method | null;
+    _returnTypeForDervied(gqlType: TypeNode): tsCodegen.NamedType;
+    _generatedEntityDerivedFieldGetter(_entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode): tsCodegen.Method;
     _generateEntityFieldSetter(_entityDef: ObjectTypeDefinitionNode, fieldDef: FieldDefinitionNode): tsCodegen.Method | null;
     _resolveFieldType(gqlType: NamedTypeNode): string;
     /** Return the type that values for this field must have. For scalar

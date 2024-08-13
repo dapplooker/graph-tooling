@@ -27,21 +27,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const path_1 = __importDefault(require("path"));
-// @ts-expect-error TODO: type out if necessary
-const Index_bs_js_1 = __importDefault(require("@float-capital/float-subgraph-uncrashable/src/Index.bs.js"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const toolbox = __importStar(require("gluegun"));
 const graphql = __importStar(require("graphql/language"));
 const immutable_1 = __importDefault(require("immutable"));
 const prettier_1 = __importDefault(require("prettier"));
+// @ts-expect-error TODO: type out if necessary
+const Index_bs_js_1 = __importDefault(require("@float-capital/float-subgraph-uncrashable/src/Index.bs.js"));
 const template_1 = __importDefault(require("./codegen/template"));
 const typescript_1 = require("./codegen/typescript");
 const fs_1 = require("./command-helpers/fs");
 const spinner_1 = require("./command-helpers/spinner");
+const debug_1 = __importDefault(require("./debug"));
 const migrations_1 = require("./migrations");
 const schema_1 = __importDefault(require("./schema"));
 const subgraph_1 = __importDefault(require("./subgraph"));
 const watcher_1 = __importDefault(require("./watcher"));
+const typeGenDebug = (0, debug_1.default)('graph-cli:type-generator');
 class TypeGenerator {
     constructor(options) {
         this.options = options;
@@ -59,7 +61,9 @@ class TypeGenerator {
     }
     async generateTypes() {
         if (this.protocol.name === 'substreams') {
+            typeGenDebug.extend('generateTypes')('Subgraph uses a substream datasource. Skipping code generation.');
             toolbox.print.success('Subgraph uses a substream datasource. Codegeneration is not required.');
+            process.exit(0);
             return;
         }
         try {
@@ -72,9 +76,11 @@ class TypeGenerator {
             const subgraph = await this.loadSubgraph();
             // Not all protocols support/have ABIs.
             if (this.protocol.hasABIs()) {
+                typeGenDebug.extend('generateTypes')('Generating types for ABIs');
                 const abis = await this.protocolTypeGenerator.loadABIs(subgraph);
                 await this.protocolTypeGenerator.generateTypesForABIs(abis);
             }
+            typeGenDebug.extend('generateTypes')('Generating types for templates');
             await this.generateTypesForDataSourceTemplates(subgraph);
             // Not all protocols support/have ABIs.
             if (this.protocol.hasABIs()) {
@@ -82,6 +88,7 @@ class TypeGenerator {
                 await this.protocolTypeGenerator.generateTypesForDataSourceTemplateABIs(templateAbis);
             }
             const schema = await this.loadSchema(subgraph);
+            typeGenDebug.extend('generateTypes')('Generating types for schema');
             await this.generateTypesForSchema(schema);
             toolbox.print.success('\nTypes generated successfully\n');
             if (this.options.uncrashable && this.options.uncrashableConfig) {
@@ -104,7 +111,10 @@ class TypeGenerator {
         });
     }
     async loadSubgraph({ quiet } = { quiet: false }) {
-        const subgraphLoadOptions = { protocol: this.protocol, skipValidation: false };
+        const subgraphLoadOptions = {
+            protocol: this.protocol,
+            skipValidation: false,
+        };
         if (quiet) {
             return (this.options.subgraph ||
                 (await subgraph_1.default.load(this.options.subgraphManifest, subgraphLoadOptions)).result);
@@ -126,10 +136,11 @@ class TypeGenerator {
         return await (0, spinner_1.withSpinner)(`Generate types for GraphQL schema`, `Failed to generate types for GraphQL schema`, `Warnings while generating types for GraphQL schema`, async (spinner) => {
             // Generate TypeScript module from schema
             const codeGenerator = schema.codeGenerator();
-            const code = prettier_1.default.format([
+            const code = await prettier_1.default.format([
                 typescript_1.GENERATED_FILE_NOTE,
                 ...codeGenerator.generateModuleImports(),
                 ...codeGenerator.generateTypes(),
+                ...codeGenerator.generateDerivedLoaders(),
             ].join('\n'), {
                 parser: 'typescript',
             });
@@ -140,6 +151,7 @@ class TypeGenerator {
         });
     }
     async generateTypesForDataSourceTemplates(subgraph) {
+        const moduleImports = [];
         return await (0, spinner_1.withSpinner)(`Generate types for data source templates`, `Failed to generate types for data source templates`, `Warnings while generating types for data source templates`, async (spinner) => {
             // Combine the generated code for all templates
             const codeSegments = subgraph
@@ -147,15 +159,30 @@ class TypeGenerator {
                 .reduce((codeSegments, template) => {
                 (0, spinner_1.step)(spinner, 'Generate types for data source template', String(template.get('name')));
                 const codeGenerator = new template_1.default(template, this.protocol);
-                // Only generate module imports once, because they are identical for
-                // all types generated for data source templates.
-                if (codeSegments.isEmpty()) {
-                    codeSegments = codeSegments.concat(codeGenerator.generateModuleImports());
-                }
+                // we want to get all the imports from the templates
+                moduleImports.push(...codeGenerator.generateModuleImports());
                 return codeSegments.concat(codeGenerator.generateTypes());
             }, immutable_1.default.List());
+            // we want to dedupe the imports from the templates
+            const dedupeModulesImports = moduleImports.reduce((acc, curr) => {
+                const found = acc.find(item => item.module === curr.module);
+                if (found) {
+                    const foundNames = Array.isArray(found.nameOrNames)
+                        ? found.nameOrNames
+                        : [found.nameOrNames];
+                    const currNames = Array.isArray(curr.nameOrNames)
+                        ? curr.nameOrNames
+                        : [curr.nameOrNames];
+                    const names = new Set([...foundNames, ...currNames]);
+                    found.nameOrNames = Array.from(names);
+                }
+                else {
+                    acc.push(curr);
+                }
+                return acc;
+            }, []);
             if (!codeSegments.isEmpty()) {
-                const code = prettier_1.default.format([typescript_1.GENERATED_FILE_NOTE, ...codeSegments].join('\n'), {
+                const code = await prettier_1.default.format([typescript_1.GENERATED_FILE_NOTE, ...dedupeModulesImports, ...codeSegments].join('\n'), {
                     parser: 'typescript',
                 });
                 const outputFile = path_1.default.join(this.options.outputDir, 'templates.ts');
