@@ -29,6 +29,9 @@ export declare namespace bigDecimal {
   function fromString(s: string): BigDecimal;
 }
 
+export type Int8 = i64;
+export type Timestamp = i64;
+
 /** An Ethereum address (20 bytes). */
 export class Address extends Bytes {
   static fromString(s: string): Address {
@@ -434,5 +437,15 @@ export class BigDecimal {
       return 0;
     }
     return diff.digits > BigInt.fromI32(0) ? 1 : -1;
+  }
+}
+
+/** A type representing Starknet's field element type. */
+export class Felt extends Bytes {
+  /**
+   * Modifies and transforms the object IN-PLACE into `BigInt`.
+   */
+  intoBigInt(): BigInt {
+    return BigInt.fromUnsignedBytes(changetype<ByteArray>(this.reverse()));
   }
 }

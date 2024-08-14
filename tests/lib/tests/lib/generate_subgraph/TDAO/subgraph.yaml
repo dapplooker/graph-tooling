@@ -1,0 +1,126 @@
+specVersion: 0.0.1
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: SVBTCPosition
+    network: mainnet
+    source:
+      address: "0x3204d81C73F8100766C1691A67078b16Ec7c142c"
+      abi: SVBTCPosition
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.5
+      language: wasm/assemblyscript
+      entities:
+        - AddBaseToken
+        - AddYieldToken
+        - AdminUpdated
+        - ApproveBorrow
+        - ApproveWithdraw
+        - BaseTokenEnabled
+        - Borrow
+        - BorrowingLimitUpdated
+        - CreditUnlockRateUpdated
+        - DepositYieldToken
+        - Donate
+        - Harvest
+        - HarvestExceedsOffset
+        - Initialized
+        - KeeperSet
+        - MaximumExpectedValueUpdated
+        - MaximumLossUpdated
+        - MinimumCollateralizationUpdated
+        - PendingAdminUpdated
+        - ProtocolFeeReceiverUpdated
+        - ProtocolFeeUpdated
+        - ProtocolTokenRequiredActiveUpdated
+        - RedlistActiveUpdated
+        - RepayLimitUpdated
+        - RepayWithBaseToken
+        - RepayWithCollateral
+        - RepayWithCollateralLimitUpdated
+        - RepayWithDebtToken
+        - SavvySageUpdated
+        - SentinelSet
+        - Snap
+        - SweepTokens
+        - TokenAdapterUpdated
+        - WithdrawYieldToken
+        - YieldTokenEnabled
+      abis:
+        - name: SVBTCPosition
+          file: ./abis/SVBTCPosition.json
+      eventHandlers:
+        - event: AddBaseToken(indexed address)
+          handler: handleAddBaseTokenEvent
+        - event: AddYieldToken(indexed address)
+          handler: handleAddYieldTokenEvent
+        - event: AdminUpdated(address)
+          handler: handleAdminUpdatedEvent
+        - event: ApproveBorrow(indexed address,indexed address,uint256)
+          handler: handleApproveBorrowEvent
+        - event: ApproveWithdraw(indexed address,indexed address,indexed address,uint256)
+          handler: handleApproveWithdrawEvent
+        - event: BaseTokenEnabled(indexed address,bool)
+          handler: handleBaseTokenEnabledEvent
+        - event: Borrow(indexed address,uint256,address)
+          handler: handleBorrowEvent
+        - event: BorrowingLimitUpdated(uint256,uint256)
+          handler: handleBorrowingLimitUpdatedEvent
+        - event: CreditUnlockRateUpdated(address,uint256)
+          handler: handleCreditUnlockRateUpdatedEvent
+        - event: DepositYieldToken(indexed address,indexed address,uint256,address)
+          handler: handleDepositYieldTokenEvent
+        - event: Donate(indexed address,indexed address,uint256)
+          handler: handleDonateEvent
+        - event: Harvest(indexed address,uint256,uint256,uint256)
+          handler: handleHarvestEvent
+        - event: HarvestExceedsOffset(indexed address,uint256,uint256)
+          handler: handleHarvestExceedsOffsetEvent
+        - event: Initialized(uint8)
+          handler: handleInitializedEvent
+        - event: KeeperSet(address,bool)
+          handler: handleKeeperSetEvent
+        - event: MaximumExpectedValueUpdated(indexed address,uint256)
+          handler: handleMaximumExpectedValueUpdatedEvent
+        - event: MaximumLossUpdated(indexed address,uint256)
+          handler: handleMaximumLossUpdatedEvent
+        - event: MinimumCollateralizationUpdated(uint256)
+          handler: handleMinimumCollateralizationUpdatedEvent
+        - event: PendingAdminUpdated(address)
+          handler: handlePendingAdminUpdatedEvent
+        - event: ProtocolFeeReceiverUpdated(address)
+          handler: handleProtocolFeeReceiverUpdatedEvent
+        - event: ProtocolFeeUpdated(uint256)
+          handler: handleProtocolFeeUpdatedEvent
+        - event: ProtocolTokenRequiredActiveUpdated(bool)
+          handler: handleProtocolTokenRequiredActiveUpdatedEvent
+        - event: RedlistActiveUpdated(bool)
+          handler: handleRedlistActiveUpdatedEvent
+        - event: RepayLimitUpdated(indexed address,uint256,uint256)
+          handler: handleRepayLimitUpdatedEvent
+        - event: RepayWithBaseToken(indexed address,indexed address,uint256,address,uint256)
+          handler: handleRepayWithBaseTokenEvent
+        - event: RepayWithCollateral(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleRepayWithCollateralEvent
+        - event: RepayWithCollateralLimitUpdated(indexed address,uint256,uint256)
+          handler: handleRepayWithCollateralLimitUpdatedEvent
+        - event: RepayWithDebtToken(indexed address,uint256,address)
+          handler: handleRepayWithDebtTokenEvent
+        - event: SavvySageUpdated(address)
+          handler: handleSavvySageUpdatedEvent
+        - event: SentinelSet(address,bool)
+          handler: handleSentinelSetEvent
+        - event: Snap(indexed address,uint256)
+          handler: handleSnapEvent
+        - event: SweepTokens(indexed address,uint256)
+          handler: handleSweepTokensEvent
+        - event: TokenAdapterUpdated(address,address)
+          handler: handleTokenAdapterUpdatedEvent
+        - event: WithdrawYieldToken(indexed address,indexed address,uint256,address)
+          handler: handleWithdrawYieldTokenEvent
+        - event: YieldTokenEnabled(indexed address,bool)
+          handler: handleYieldTokenEnabledEvent
+      file: ./src/SVBTCPositionMapping.ts

@@ -34,18 +34,19 @@ const AbiCodeGenerator = require("../protocols/ethereum/codegen/abi");
  */
 const runInit = async ({ subgraphName, directory, network, fromContracts, etherscanApikey, indexEvents = false, allowSimpleName = false, fromExample = false, product = "hosted-service", protocol = "ethereum", node = "https://api.thegraph.com/deploy/", studio }) => {
     console.log(`
-SubgraphName: ${subgraphName}
-Directory:${directory}
-Network:${network}
-Contracts:${JSON.stringify(fromContracts)}
-etherscanApikey:${etherscanApikey}
-IndexEvents:${indexEvents}
-AllowSimpleName:${allowSimpleName}
-fromExample:${fromExample}
-Product:${product}
-Protocol:${protocol}
-Node:${node}
-Studio:${studio}`);
+        SubgraphName: ${subgraphName}
+        Directory: ${directory}
+        Network: ${network}
+        Contracts: ${JSON.stringify(fromContracts)}
+        EtherscanApikey: ${etherscanApikey}
+        IndexEvents: ${indexEvents}
+        AllowSimpleName: ${allowSimpleName}
+        FromExample: ${fromExample}
+        Product: ${product}
+        Protocol: ${protocol}
+        Node: ${node}
+        Studio: ${studio}
+    `);
     if (fromContracts && fromExample) {
         toolbox.print.error(`Only one of --from-example and --from-contract can be used at a time.`);
         process.exitCode = 1;
@@ -328,7 +329,7 @@ const initSubgraphFromContract = async (toolbox, { protocolInstance, allowSimple
         fromContracts.data = fromContracts.contractAbi;
     }
     // Scaffold subgraph from ABI
-    print.info("Initializing withSpinner........");
+    print.info("Start initializing...");
     const scaffold = await withSpinner(`Create subgraph scaffold`, `Failed to create subgraph scaffold`, `Warnings while creating subgraph scaffold`, async (spinner) => {
         const scaffold = await generateScaffold({
             protocolInstance,

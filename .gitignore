@@ -70,7 +70,8 @@ examples/*/data
 .DS_Store
 
 # TSC build outputs
-dist
+#dist
+.idea
 
 # Generated
 **/tests/**/generated

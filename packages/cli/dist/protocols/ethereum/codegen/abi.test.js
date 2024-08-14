@@ -29,14 +29,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path_1 = __importDefault(require("path"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const immutable_1 = __importDefault(require("immutable"));
+const vitest_1 = require("vitest");
 const ts = __importStar(require("../../../codegen/typescript"));
 const abi_1 = __importDefault(require("../abi"));
 const abi_2 = __importDefault(require("./abi"));
 let tempdir;
 let abi;
 let generatedTypes;
-describe('ABI code generation', () => {
-    beforeAll(async () => {
+vitest_1.describe.concurrent('ABI code generation', () => {
+    (0, vitest_1.beforeAll)(async () => {
         tempdir = await fs_extra_1.default.mkdtemp('abi-codegen');
         try {
             const filename = path_1.default.join(tempdir, 'ABI.json');
@@ -194,12 +195,12 @@ describe('ABI code generation', () => {
             await fs_extra_1.default.remove(tempdir);
         }
     });
-    afterAll(async () => {
+    (0, vitest_1.afterAll)(async () => {
         await fs_extra_1.default.remove(tempdir);
     });
-    describe('Generated types', () => {
-        test('All expected types are generated', () => {
-            expect(generatedTypes.map(type => type.name)).toEqual([
+    (0, vitest_1.describe)('Generated types', () => {
+        (0, vitest_1.test)('All expected types are generated', () => {
+            (0, vitest_1.expect)(generatedTypes.map(type => type.name)).toEqual([
                 'Contract__getProposalResultValue0Struct',
                 'Contract__getProposalInputParam1Struct',
                 'Contract__getProposalInputParam1BarStruct',
@@ -209,27 +210,27 @@ describe('ABI code generation', () => {
             ]);
         });
     });
-    describe('Contract class', () => {
-        test('Exists', () => {
-            expect(generatedTypes.find(type => type.name === 'Contract')).toBeDefined();
+    (0, vitest_1.describe)('Contract class', () => {
+        (0, vitest_1.test)('Exists', () => {
+            (0, vitest_1.expect)(generatedTypes.find(type => type.name === 'Contract')).toBeDefined();
         });
-        test('Has methods', () => {
+        (0, vitest_1.test)('Has methods', () => {
             const contract = generatedTypes.find(type => type.name === 'Contract');
-            expect(contract.methods).toBeInstanceOf(Array);
+            (0, vitest_1.expect)(contract.methods).toBeInstanceOf(Array);
         });
-        test('Has `bind` method', () => {
+        (0, vitest_1.test)('Has `bind` method', () => {
             const contract = generatedTypes.find(type => type.name === 'Contract');
-            expect(contract.methods.find((method) => method.name === 'bind')).toBeDefined();
+            (0, vitest_1.expect)(contract.methods.find((method) => method.name === 'bind')).toBeDefined();
         });
-        test('Has methods for all callable functions', () => {
+        (0, vitest_1.test)('Has methods for all callable functions', () => {
             const contract = generatedTypes.find(type => type.name === 'Contract');
-            expect(contract.methods.map((method) => method.name)).toContain('getProposal');
+            (0, vitest_1.expect)(contract.methods.map((method) => method.name)).toContain('getProposal');
         });
     });
-    describe('Methods for callable functions', () => {
-        test('Have correct parameters', () => {
+    (0, vitest_1.describe)('Methods for callable functions', () => {
+        (0, vitest_1.test)('Have correct parameters', () => {
             const contract = generatedTypes.find(type => type.name === 'Contract');
-            expect(contract.methods.map((method) => [method.name, method.params])).toEqual([
+            (0, vitest_1.expect)(contract.methods.map((method) => [method.name, method.params])).toEqual([
                 ['bind', immutable_1.default.List([ts.param('address', 'Address')])],
                 ['read', immutable_1.default.List()],
                 ['try_read', immutable_1.default.List()],
@@ -257,9 +258,9 @@ describe('ABI code generation', () => {
                 ['try_overloaded2', immutable_1.default.List([ts.param('param0', 'Bytes')])],
             ]);
         });
-        test('Have correct return types', () => {
+        (0, vitest_1.test)('Have correct return types', () => {
             const contract = generatedTypes.find(type => type.name === 'Contract');
-            expect(contract.methods.map((method) => [method.name, method.returnType])).toEqual([
+            (0, vitest_1.expect)(contract.methods.map((method) => [method.name, method.returnType])).toEqual([
                 ['bind', ts.namedType('Contract')],
                 ['read', ts.namedType('Bytes')],
                 ['try_read', 'ethereum.CallResult<Bytes>'],
@@ -276,34 +277,34 @@ describe('ABI code generation', () => {
             ]);
         });
     });
-    describe('Tuples', () => {
-        test('Tuple types exist for function parameters', () => {
+    (0, vitest_1.describe)('Tuples', () => {
+        (0, vitest_1.test)('Tuple types exist for function parameters', () => {
             let tupleType = generatedTypes.find(type => type.name === 'Contract__getProposalInputParam1Struct');
             // Verify that the tuple type has methods
-            expect(tupleType.methods).toBeDefined();
+            (0, vitest_1.expect)(tupleType.methods).toBeDefined();
             // Verify that the tuple type has getters for all tuple fields with
             // the right return types
-            expect(tupleType.methods.map((method) => [method.name, method.returnType])).toEqual([
+            (0, vitest_1.expect)(tupleType.methods.map((method) => [method.name, method.returnType])).toEqual([
                 ['get foo', 'i32'],
                 ['get bar', 'Contract__getProposalInputParam1BarStruct'],
             ]);
             // Inner tuple:
             tupleType = generatedTypes.find(type => type.name === 'Contract__getProposalInputParam1BarStruct');
             // Verify that the tuple type has methods
-            expect(tupleType.methods).toBeDefined();
+            (0, vitest_1.expect)(tupleType.methods).toBeDefined();
             // Verify that the tuple type has getters for all tuple fields with
             // the right return types
-            expect(tupleType.methods.map((method) => [method.name, method.returnType])).toEqual([
+            (0, vitest_1.expect)(tupleType.methods.map((method) => [method.name, method.returnType])).toEqual([
                 ['get baz', 'Address'],
             ]);
         });
-        test('Tuple types exist for function return values', () => {
+        (0, vitest_1.test)('Tuple types exist for function return values', () => {
             const tupleType = generatedTypes.find(type => type.name === 'Contract__getProposalResultValue0Struct');
             // Verify that the tuple type has methods
-            expect(tupleType.methods).toBeDefined();
+            (0, vitest_1.expect)(tupleType.methods).toBeDefined();
             // Verify that the tuple type has getters for all tuple fields with
             // the right return types
-            expect(tupleType.methods.map((method) => [method.name, method.returnType])).toEqual([
+            (0, vitest_1.expect)(tupleType.methods.map((method) => [method.name, method.returnType])).toEqual([
                 ['get result', 'i32'],
                 ['get target', 'Address'],
                 ['get data', 'Bytes'],
@@ -315,11 +316,11 @@ describe('ABI code generation', () => {
                 ['get noCount', 'BigInt'],
             ]);
         });
-        test('Function bodies are generated correctly for tuple arrays', () => {
+        (0, vitest_1.test)('Function bodies are generated correctly for tuple arrays', () => {
             const contract = generatedTypes.find(type => type.name === 'Contract');
             const getter = contract.methods.find((method) => method.name === 'getProposals');
-            expect(getter.body).not.toContain('toTupleArray<undefined>');
-            expect(getter.body).toContain('result[1].toTupleArray<Contract__getProposalsResultValue1Struct>()');
+            (0, vitest_1.expect)(getter.body).not.toContain('toTupleArray<undefined>');
+            (0, vitest_1.expect)(getter.body).toContain('result[1].toTupleArray<Contract__getProposalsResultValue1Struct>()');
         });
     });
 });

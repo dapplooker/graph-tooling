@@ -67,7 +67,7 @@ class EthereumTypeGenerator {
             throw Error(`Failed to load data source template ABI: ${e.message}`);
         }
     }
-    generateTypesForABIs(abis) {
+    async generateTypesForABIs(abis) {
         return (0, spinner_1.withSpinner)(`Generate types for contract ABIs`, `Failed to generate types for contract ABIs`, `Warnings while generating types for contract ABIs`, async (spinner) => {
             return await Promise.all(abis.map(async (abi) => await this._generateTypesForABI(abi, spinner)));
         });
@@ -76,7 +76,7 @@ class EthereumTypeGenerator {
         try {
             (0, spinner_1.step)(spinner, `Generate types for contract ABI:`, `${abi.abi.name} (${(0, fs_1.displayPath)(abi.abi.file)})`);
             const codeGenerator = abi.abi.codeGenerator();
-            const code = prettier_1.default.format([
+            const code = await prettier_1.default.format([
                 typescript_1.GENERATED_FILE_NOTE,
                 ...codeGenerator.generateModuleImports(),
                 ...codeGenerator.generateTypes(),
@@ -101,7 +101,7 @@ class EthereumTypeGenerator {
         try {
             (0, spinner_1.step)(spinner, `Generate types for data source template ABI:`, `${abi.template.get('name')} > ${abi.abi.name} (${(0, fs_1.displayPath)(abi.abi.file)})`);
             const codeGenerator = abi.abi.codeGenerator();
-            const code = prettier_1.default.format([
+            const code = await prettier_1.default.format([
                 typescript_1.GENERATED_FILE_NOTE,
                 ...codeGenerator.generateModuleImports(),
                 ...codeGenerator.generateTypes(),

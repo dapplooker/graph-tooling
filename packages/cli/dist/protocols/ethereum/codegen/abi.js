@@ -40,6 +40,8 @@ class AbiCodeGenerator {
     constructor(abi) {
         this.abi = abi;
         this.abi = abi;
+        // Sanitize the name of the ABI to make it a valid class name
+        this.abi.name = abi.name.replace(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]+/g, '_');
     }
     generateModuleImports() {
         const imports = [

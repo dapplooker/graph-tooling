@@ -5,6 +5,8 @@ import { Address, BigInt } from '../common/numbers';
 /** Host Ethereum interface */
 export declare namespace ethereum {
   function call(call: SmartContractCall): Array<Value> | null;
+  function getBalance(address: Address): BigInt;
+  function hasCode(address: Address): Wrapped<bool>;
   function encode(token: Value): Bytes | null;
   function decode(types: String, data: Bytes): Value | null;
 }
@@ -35,7 +37,10 @@ export namespace ethereum {
    * A dynamically typed value used when accessing Ethereum data.
    */
   export class Value {
-    constructor(public kind: ValueKind, public data: ValuePayload) {}
+    constructor(
+      public kind: ValueKind,
+      public data: ValuePayload,
+    ) {}
 
     @operator('<')
     lt(_: Value): boolean {
@@ -632,7 +637,10 @@ export namespace ethereum {
    * A dynamically-typed Ethereum event parameter.
    */
   export class EventParam {
-    constructor(public name: string, public value: Value) {}
+    constructor(
+      public name: string,
+      public value: Value,
+    ) {}
   }
 
   export class SmartContractCall {

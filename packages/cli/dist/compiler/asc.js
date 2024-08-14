@@ -77,7 +77,7 @@ const compile = ({ inputFile, global, baseDir, libs, outputFile }) => {
         '--debug',
     ];
     assemblyScriptCompiler(compilerArgs, compilerDefaults);
-    // only if compiler succeded, that is, when the line above doesn't throw
+    // only if compiler succeeded, that is, when the line above doesn't throw
     removeExitHandler(exitHandler);
 };
 exports.compile = compile;

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const core_1 = require("@oclif/core");
 const gluegun_1 = require("gluegun");
+const core_1 = require("@oclif/core");
 const auth_1 = require("../command-helpers/auth");
 const node_1 = require("../command-helpers/node");
 class AuthCommand extends core_1.Command {
@@ -33,6 +33,9 @@ class AuthCommand extends core_1.Command {
         if (deployKey.length > 200) {
             this.error('✖ Deploy key must not exceed 200 characters', { exit: 1 });
         }
+        if (product === 'hosted-service' || node?.match(/api.thegraph.com/)) {
+            this.error('✖ The hosted service is deprecated', { exit: 1 });
+        }
         try {
             await (0, auth_1.saveDeployKey)(node, deployKey);
             gluegun_1.print.success(`Deploy key set for ${node}`);
@@ -54,10 +57,16 @@ AuthCommand.flags = {
     product: core_1.Flags.string({
         summary: 'Select a product for which to authenticate.',
         options: ['subgraph-studio', 'hosted-service'],
+        deprecated: {
+            message: 'In next major version, this flag will be removed. By default we will deploy to the Graph Studio. Learn more about Sunrise of Decentralized Data https://thegraph.com/blog/unveiling-updated-sunrise-decentralized-data/',
+        },
     }),
     studio: core_1.Flags.boolean({
         summary: 'Shortcut for "--product subgraph-studio".',
         exclusive: ['product'],
+        deprecated: {
+            message: 'In next major version, this flag will be removed. By default we will deploy to the Graph Studio. Learn more about Sunrise of Decentralized Data https://thegraph.com/blog/unveiling-updated-sunrise-decentralized-data/',
+        },
     }),
 };
 exports.default = AuthCommand;

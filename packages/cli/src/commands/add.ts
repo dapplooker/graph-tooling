@@ -1,10 +1,11 @@
+import { filesystem, prompt, system } from 'gluegun';
+import immutable from 'immutable';
 import { Args, Command, Flags } from '@oclif/core';
 import { CLIError } from '@oclif/core/lib/errors';
-import { system } from 'gluegun';
-import immutable from 'immutable';
 import {
   loadAbiFromBlockScout,
   loadAbiFromEtherscan,
+  loadContractNameForAddress,
   loadStartBlockForContract,
 } from '../command-helpers/abi';
 import * as DataSourcesExtractor from '../command-helpers/data-sources';
@@ -64,7 +65,7 @@ export default class AddCommand extends Command {
       args: { address, 'subgraph-manifest': manifestPath },
       flags: {
         abi,
-        'contract-name': contractName,
+        'contract-name': contractNameFlag,
         'merge-entities': mergeEntities,
         'network-file': networksFile,
         'start-block': startBlockFlag,
@@ -78,6 +79,7 @@ export default class AddCommand extends Command {
     const result = manifest.result.asMutable();
 
     let startBlock = startBlockFlag;
+    let contractName = contractNameFlag;
 
     const entities = getEntities(manifest);
     const contractNames = getContractNames(manifest);
@@ -100,8 +102,44 @@ export default class AddCommand extends Command {
     try {
       startBlock ||= Number(await loadStartBlockForContract(network, address)).toString();
     } catch (error) {
-      // If we can't get the start block, we'll just leave it out of the manifest
-      // TODO: Ask the user for the start block
+      // we cannot ask user to do prompt in test environment
+      if (process.env.NODE_ENV !== 'test') {
+        // If we can't get the start block, we'll just leave it out of the manifest
+        const { startBlock: userInputStartBlock } = await prompt.ask<{ startBlock: string }>([
+          {
+            type: 'input',
+            name: 'startBlock',
+            message: 'Start Block',
+            initial: '0',
+            validate: value => parseInt(value) >= 0,
+            result(value) {
+              return value;
+            },
+          },
+        ]);
+        startBlock = userInputStartBlock;
+      }
+    }
+
+    try {
+      contractName = await loadContractNameForAddress(network, address);
+    } catch (error) {
+      // not asking user to do prompt in test environment
+      if (process.env.NODE_ENV !== 'test') {
+        const { contractName: userInputContractName } = await prompt.ask<{ contractName: string }>([
+          {
+            type: 'input',
+            name: 'contractName',
+            message: 'Contract Name',
+            initial: 'Contract',
+            validate: value => value && value.length > 0,
+            result(value) {
+              return value;
+            },
+          },
+        ]);
+        contractName = userInputContractName;
+      }
     }
 
     await writeABI(ethabi, contractName);
@@ -153,7 +191,9 @@ export default class AddCommand extends Command {
     await Subgraph.write(result, manifestPath);
 
     // Update networks.json
-    await updateNetworksFile(network, contractName, address, networksFile);
+    if (filesystem.exists(networksFile)) {
+      await updateNetworksFile(network, contractName, address, networksFile);
+    }
 
     // Detect Yarn and/or NPM
     const yarn = system.which('yarn');

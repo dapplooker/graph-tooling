@@ -1,12 +1,25 @@
 import fs from 'fs';
 import * as graphql from 'graphql/language';
 import immutable from 'immutable';
+import debugFactory from '../debug';
+
+const validateDebugger = debugFactory('graph-cli:validation');
 
 const List = immutable.List;
 const Set = immutable.Set;
 
 // Builtin scalar types
-const BUILTIN_SCALAR_TYPES = ['Boolean', 'Int', 'BigDecimal', 'String', 'BigInt', 'Bytes', 'ID'];
+const BUILTIN_SCALAR_TYPES = [
+  'Boolean',
+  'Int',
+  'BigDecimal',
+  'String',
+  'BigInt',
+  'Bytes',
+  'ID',
+  'Int8',
+  'Timestamp',
+];
 
 // Type suggestions for common mistakes
 const TYPE_SUGGESTIONS = [
@@ -26,9 +39,14 @@ const TYPE_SUGGESTIONS = [
   ['float', 'BigDecimal'],
   ['Float', 'BigDecimal'],
   ['int', 'Int'],
+  ['int8', 'Int8'],
+  ['timestamp', 'Timestamp'],
+  ['ts', 'Timestamp'],
   ['uint', 'BigInt'],
   ['owner', 'String'],
   ['Owner', 'String'],
+  [/^(u|uint)8$/, 'Int8'],
+  [/^(i|int)8$/, 'Int8'],
   [/^(u|uint)(8|16|24)$/, 'Int'],
   [/^(i|int)(8|16|24|32)$/, 'Int'],
   [/^(u|uint)32$/, 'BigInt'],
@@ -66,21 +84,27 @@ const parseSchema = (doc: string) => {
   }
 };
 
-const validateEntityDirective = (def: any) =>
-  def.directives.find((directive: any) => directive.name.value === 'entity')
+const validateEntityDirective = (def: any) => {
+  validateDebugger('Validating entity directive for %s', def?.name?.value);
+  return def.directives.find(
+    (directive: any) => directive.name.value === 'entity' || directive.name.value === 'aggregation',
+  )
     ? List()
     : immutable.fromJS([
         {
           loc: def.loc,
           entity: def.name.value,
-          message: `Defined without @entity directive`,
+          message: `Defined without @entity or @aggregation directive`,
         },
       ]);
+};
 
 const validateEntityID = (def: any) => {
+  validateDebugger('Validating entity ID for %s', def?.name?.value);
   const idField = def.fields.find((field: any) => field.name.value === 'id');
 
   if (idField === undefined) {
+    validateDebugger('Entity %s has no id field', def?.name?.value);
     return immutable.fromJS([
       {
         loc: def.loc,
@@ -95,23 +119,28 @@ const validateEntityID = (def: any) => {
     idField.type.type.kind === 'NamedType' &&
     (idField.type.type.name.value === 'ID' ||
       idField.type.type.name.value === 'Bytes' ||
-      idField.type.type.name.value === 'String')
+      idField.type.type.name.value === 'String' ||
+      idField.type.type.name.value === 'Int8')
   ) {
+    validateDebugger('Entity %s has valid id field', def?.name?.value);
     return List();
   }
+
+  validateDebugger('Entity %s has invalid id field', def?.name?.value);
   return immutable.fromJS([
     {
       loc: idField.loc,
       entity: def.name.value,
-      message: `Field 'id': Entity ids must be of type Bytes! or String!`,
+      message: `Field 'id': Entity ids must be of type Int8!, Bytes! or String!`,
     },
   ]);
 };
 
-const validateListFieldType = (def: any, field: any) =>
-  field.type.kind === 'NonNullType' &&
-  field.type.kind === 'ListType' &&
-  field.type.type.kind !== 'NonNullType'
+const validateListFieldType = (def: any, field: any) => {
+  validateDebugger('Validating list field type for %s', def?.name?.value);
+  return field.type.kind === 'NonNullType' &&
+    field.type.kind === 'ListType' &&
+    field.type.type.kind !== 'NonNullType'
     ? immutable.fromJS([
         {
           loc: field.loc,
@@ -138,24 +167,58 @@ Reason: Lists with null elements are not supported.`,
         },
       ])
     : List();
-
-const unwrapType = (type: any) => {
-  const innerTypeFromList = (listType: any): any =>
-    listType.type.kind === 'NonNullType' ? innerTypeFromNonNull(listType.type) : listType.type;
-
-  const innerTypeFromNonNull = (nonNullType: any): any =>
-    nonNullType.type.kind === 'ListType' ? innerTypeFromList(nonNullType.type) : nonNullType.type;
-
-  // Obtain the inner-most type from the field
-  return type.kind === 'NonNullType'
-    ? innerTypeFromNonNull(type)
-    : type.kind === 'ListType'
-    ? innerTypeFromList(type)
-    : type;
 };
 
-const gatherLocalTypes = (defs: readonly graphql.DefinitionNode[]) =>
-  defs
+const unwrapType = (type: any) => {
+  validateDebugger.extend('definition')('Unwrapping type %M', type);
+
+  const innerTypeFromList = (listType: any): any => {
+    validateDebugger.extend('unwrapType').extend('definition')('Unwrapping list type %M', listType);
+
+    if (listType.type.kind === 'NonNullType') {
+      validateDebugger.extend('unwrapType').extend('innerTypeFromList')(
+        'Returning non-null list type',
+      );
+      return innerTypeFromNonNull(listType.type);
+    }
+
+    validateDebugger.extend('unwrapType').extend('innerTypeFromList')('Returning list type');
+    return unwrapType(listType.type);
+  };
+
+  const innerTypeFromNonNull = (nonNullType: any): any => {
+    validateDebugger.extend('unwrapType').extend('definition')(
+      'Unwrapping non-null type %M',
+      nonNullType,
+    );
+
+    if (nonNullType.type.kind === 'ListType') {
+      validateDebugger.extend('unwrapType').extend('innerTypeFromNonNull')(
+        'Returning non-null list type',
+      );
+      return innerTypeFromList(nonNullType.type);
+    }
+
+    validateDebugger.extend('unwrapType').extend('innerTypeFromNonNull')('Returning non-null type');
+    return unwrapType(nonNullType.type);
+  };
+
+  // Obtain the inner-most type from the field
+  if (type.kind === 'NonNullType') {
+    validateDebugger('Returning inner type from non-null type');
+    return innerTypeFromNonNull(type);
+  }
+  if (type.kind === 'ListType') {
+    validateDebugger('Returning inner type from list type');
+    return innerTypeFromList(type);
+  }
+  validateDebugger('Returning inner type');
+  return type;
+};
+
+const gatherLocalTypes = (defs: readonly graphql.DefinitionNode[]) => {
+  validateDebugger('Gathering local types');
+  return defs
     .filter(
       def =>
         def.kind === 'ObjectTypeDefinition' ||
@@ -167,6 +230,7 @@ const gatherLocalTypes = (defs: readonly graphql.DefinitionNode[]) =>
         // @ts-expect-error TODO: name field does not exist on definition, really?
         def.name.value,
     );
+};
 
 const gatherImportedTypes = (defs: readonly graphql.DefinitionNode[]) =>
   defs
@@ -219,8 +283,9 @@ const gatherImportedTypes = (defs: readonly graphql.DefinitionNode[]) =>
       [],
     );
 
-const entityTypeByName = (defs: any[], name: string) =>
-  defs
+const entityTypeByName = (defs: any[], name: string) => {
+  validateDebugger('Looking up entity type %s', name);
+  return defs
     .filter(
       def =>
         def.kind === 'InterfaceTypeDefinition' ||
@@ -228,20 +293,27 @@ const entityTypeByName = (defs: any[], name: string) =>
           def.directives.find((directive: any) => directive.name.value === 'entity')),
     )
     .find(def => def.name.value === name);
+};
 
-const fieldTargetEntityName = (field: any) => unwrapType(field.type).name.value;
+const fieldTargetEntityName = (field: any) => {
+  validateDebugger('Looking up field target entity name for %s', field?.name?.value);
+  return unwrapType(field.type).name.value;
+};
 
 const fieldTargetEntity = (defs: any[], field: any) =>
   entityTypeByName(defs, fieldTargetEntityName(field));
 
 const validateInnerFieldType = (defs: any[], def: any, field: any) => {
+  validateDebugger('Validating inner field type for %s', def?.name?.value);
   const innerType = unwrapType(field.type);
 
   // Get the name of the type
   const typeName = innerType.name.value;
+  validateDebugger('Inner field type name: %s', typeName);
 
   // Look up a possible suggestion for the type to catch common mistakes
   const suggestion = typeSuggestion(typeName);
+  validateDebugger('Inner field type suggestion: %s', suggestion);
 
   // Collect all types that we can use here: built-ins + entities + enums + interfaces
   const availableTypes = List.of(
@@ -333,6 +405,7 @@ does not exist on type '${targetEntity.name.value}'`,
   }
 
   const backrefTypeName = unwrapType(derivedFromField.type);
+  validateDebugger.extend('definition')('Backref type name: %M', backrefTypeName);
   const backRefEntity = entityTypeByName(defs, backrefTypeName.name.value);
 
   // The field we are deriving from must either have type 'def' or one of the
@@ -805,6 +878,7 @@ const validateImportDirectiveArgumentFrom = (def: any, directive: any, argument:
 };
 
 const validateImportDirectiveFields = (def: any, directive: any) => {
+  validateDebugger('Validating import directive fields: %s', def?.name?.value);
   return directive.arguments.reduce((errors: any[], argument: any) => {
     return errors.concat(
       ['types', 'from'].includes(argument.name.value)
@@ -821,6 +895,7 @@ const validateImportDirectiveFields = (def: any, directive: any) => {
 };
 
 const validateImportDirectiveTypes = (def: any, directive: any) => {
+  validateDebugger('Validating import directive types: %s', def?.name?.value);
   const types = directive.arguments.find((argument: any) => argument.name.value == 'types');
   return types
     ? validateImportDirectiveArgumentTypes(def, directive, types)
@@ -834,6 +909,7 @@ const validateImportDirectiveTypes = (def: any, directive: any) => {
 };
 
 const validateImportDirectiveFrom = (def: any, directive: any) => {
+  validateDebugger('Validating import directive from: %s', def?.name?.value);
   const from = directive.arguments.find((argument: any) => argument.name.value == 'from');
   return from
     ? validateImportDirectiveArgumentFrom(def, directive, from)
@@ -846,12 +922,14 @@ const validateImportDirectiveFrom = (def: any, directive: any) => {
       ]);
 };
 
-const validateImportDirective = (def: any, directive: any) =>
-  List.of(
+const validateImportDirective = (def: any, directive: any) => {
+  validateDebugger('Validating import directive: %s', def?.name?.value);
+  return List.of(
     ...validateImportDirectiveFields(def, directive),
     ...validateImportDirectiveTypes(def, directive),
     ...validateImportDirectiveFrom(def, directive),
   );
+};
 
 const validateFulltext = (def: any, directive: any) =>
   List.of(
@@ -863,10 +941,13 @@ const validateFulltext = (def: any, directive: any) =>
   );
 
 const validateSubgraphSchemaDirective = (def: any, directive: any) => {
+  validateDebugger('Validating subgraph schema directive: %s', def?.name?.value);
   if (directive.name.value == 'import') {
+    validateDebugger('Validating import directive: %s', def?.name?.value);
     return validateImportDirective(def, directive);
   }
   if (directive.name.value == 'fulltext') {
+    validateDebugger('Validating fulltext directive: %s', def?.name?.value);
     return validateFulltext(def, directive);
   }
   return List([
@@ -878,15 +959,18 @@ const validateSubgraphSchemaDirective = (def: any, directive: any) => {
   ]);
 };
 
-const validateSubgraphSchemaDirectives = (def: any) =>
-  def.directives.reduce(
+const validateSubgraphSchemaDirectives = (def: any) => {
+  validateDebugger('Validating subgraph schema directives: %s', def?.name?.value);
+  return def.directives.reduce(
     (errors: any[], directive: any) =>
       errors.concat(validateSubgraphSchemaDirective(def, directive)),
     List(),
   );
+};
 
-const validateTypeHasNoFields = (def: any) =>
-  def.fields.length
+const validateTypeHasNoFields = (def: any) => {
+  validateDebugger('Validating type has no fields: %s', def?.name?.value);
+  return def.fields.length
     ? List([
         immutable.fromJS({
           loc: def.name.loc,
@@ -895,12 +979,14 @@ const validateTypeHasNoFields = (def: any) =>
         }),
       ])
     : List();
+};
 
 const validateAtLeastOneExtensionField = (_def: any) => List();
 
 const typeDefinitionValidators = {
-  ObjectTypeDefinition: (defs: any[], def: any) =>
-    def.name && def.name.value == RESERVED_TYPE
+  ObjectTypeDefinition: (defs: any[], def: any) => {
+    validateDebugger('Validating object type definition: %s', def?.name?.value);
+    return def.name && def.name.value == RESERVED_TYPE
       ? List.of(...validateSubgraphSchemaDirectives(def), ...validateTypeHasNoFields(def))
       : List.of(
           ...validateEntityDirective(def),
@@ -908,26 +994,39 @@ const typeDefinitionValidators = {
           ...validateEntityFields(defs, def),
           ...validateNoImportDirective(def),
           ...validateNoFulltext(def),
-        ),
-  ObjectTypeExtension: (_defs: any[], def: any) => validateAtLeastOneExtensionField(def),
+        );
+  },
+  ObjectTypeExtension: (_defs: any[], def: any) => {
+    validateDebugger('Validating object type extension: %s', def?.name?.value);
+    return validateAtLeastOneExtensionField(def);
+  },
 };
 
-const validateTypeDefinition = (defs: any, def: { kind: keyof typeof typeDefinitionValidators }) =>
-  typeDefinitionValidators[def.kind] === undefined
+const validateTypeDefinition = (
+  defs: any,
+  def: { kind: keyof typeof typeDefinitionValidators },
+) => {
+  validateDebugger.extend('definition')('Validating type definition: %M', def);
+  return typeDefinitionValidators[def.kind] === undefined
     ? List()
     : typeDefinitionValidators[def.kind](defs, def);
+};
 
-const validateTypeDefinitions = (defs: any) =>
-  defs.reduce(
+const validateTypeDefinitions = (defs: any) => {
+  validateDebugger('Validating type definitions');
+  return defs.reduce(
     (errors: any[], def: any) => errors.concat(validateTypeDefinition(defs, def)),
     List(),
   );
+};
 
 const validateNamingCollisionsInTypes = (types: any) => {
+  validateDebugger('Validating naming collisions in types');
   let seen = Set();
   let conflicting = Set();
   return types.reduce((errors: immutable.List<any>, type: any) => {
     if (seen.has(type) && !conflicting.has(type)) {
+      validateDebugger('Found naming collision');
       errors = errors.push(
         immutable.fromJS({
           loc: { start: 1, end: 1 },
@@ -943,12 +1042,18 @@ const validateNamingCollisionsInTypes = (types: any) => {
   }, List());
 };
 
-const validateNamingCollisions = (local: any[], imported: any) =>
-  validateNamingCollisionsInTypes(local.concat(imported));
+const validateNamingCollisions = (local: any[], imported: any) => {
+  validateDebugger('Validating naming collisions');
+  return validateNamingCollisionsInTypes(local.concat(imported));
+};
 
 export const validateSchema = (filename: string) => {
+  validateDebugger('Validating schema: %s', filename);
   const doc = loadSchema(filename);
+  validateDebugger('Loaded schema: %s', filename);
   const schema = parseSchema(doc);
+  validateDebugger.extend('schema')('Parsed schema: %M', schema);
+
   return List.of(
     ...validateTypeDefinitions(schema.definitions),
     ...validateNamingCollisions(

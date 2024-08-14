@@ -27,7 +27,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const immutable_1 = __importDefault(require("immutable"));
-const file_template_1 = __importDefault(require("../protocols/ipfs/codegen/file_template"));
+const file_template_1 = __importDefault(require("../protocols/file_template"));
 const tsCodegen = __importStar(require("./typescript"));
 class DataSourceTemplateCodeGenerator {
     constructor(template, protocol) {
@@ -37,8 +37,11 @@ class DataSourceTemplateCodeGenerator {
         if (kind.split('/')[0] == protocol.name) {
             this.protocolTemplateCodeGen = protocol.getTemplateCodeGen(template);
         }
-        else if (kind == 'file/ipfs') {
+        else if (kind == 'file/ipfs' || kind == 'file/arweave') {
             this.protocolTemplateCodeGen = new file_template_1.default(template);
+        }
+        else {
+            throw new Error(`DataSourceTemplate kind not supported: ${kind}`);
         }
     }
     generateModuleImports() {
@@ -55,7 +58,10 @@ class DataSourceTemplateCodeGenerator {
     }
     _generateTemplateType() {
         const name = this.template.get('name');
-        const klass = tsCodegen.klass(name, { export: true, extends: 'DataSourceTemplate' });
+        const klass = tsCodegen.klass(name, {
+            export: true,
+            extends: 'DataSourceTemplate',
+        });
         klass.addMethod(this.protocolTemplateCodeGen.generateCreateMethod());
         klass.addMethod(this.protocolTemplateCodeGen.generateCreateWithContextMethod());
         return klass;

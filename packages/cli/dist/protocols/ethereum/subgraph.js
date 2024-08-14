@@ -43,7 +43,7 @@ class EthereumSubgraph {
         return dataSourcesAndTemplates.reduce((errors, dataSourceOrTemplate) => errors.concat(this.validateDataSourceAbis(dataSourceOrTemplate.get('dataSource'), dataSourceOrTemplate.get('path'))), immutable_1.default.List());
     }
     validateDataSourceAbis(dataSource, path) {
-        // Validate that the the "source > abi" reference of all data sources
+        // Validate that the "source > abi" reference of all data sources
         // points to an existing ABI in the data source ABIs
         const abiName = dataSource.getIn(['source', 'abi']);
         const abiNames = dataSource.getIn(['mapping', 'abis']).map((abi) => abi.get('name'));

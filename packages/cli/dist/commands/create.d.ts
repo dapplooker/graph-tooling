@@ -1,6 +1,9 @@
 import { Command } from '@oclif/core';
+import { Deprecation } from '@oclif/core/lib/interfaces';
 export default class CreateCommand extends Command {
     static description: string;
+    static state: string;
+    static deprecationOptions: Deprecation;
     static args: {
         'subgraph-name': import("@oclif/core/lib/interfaces/parser").Arg<string, Record<string, unknown>>;
     };

@@ -15,7 +15,7 @@ const VARIABLES_VALUES = {
     string: 'Example string value',
     bool: true,
 };
-const generateTestsFiles = (contract, events, indexEvents) => {
+const generateTestsFiles = async (contract, events, indexEvents) => {
     const eventsTypes = events
         .flatMap(event => event.inputs.map((input) => {
         // If the asc type is Array<T> we need to check if T is a native type or a custom graph-ts type
@@ -27,8 +27,8 @@ const generateTestsFiles = (contract, events, indexEvents) => {
         .filter(type => !type.startsWith('ethereum.') && !isNativeType(type));
     const importTypes = [...new Set(eventsTypes)].join(', ');
     return {
-        [`${gluegun_1.strings.kebabCase(contract)}.test.ts`]: prettier_1.default.format(generateExampleTest(contract, events[0], indexEvents, importTypes), { parser: 'typescript', semi: false }),
-        [`${gluegun_1.strings.kebabCase(contract)}-utils.ts`]: prettier_1.default.format(generateTestHelper(contract, events, importTypes), { parser: 'typescript', semi: false }),
+        [`${gluegun_1.strings.kebabCase(contract)}.test.ts`]: await prettier_1.default.format(generateExampleTest(contract, events[0], indexEvents, importTypes), { parser: 'typescript', semi: false, trailingComma: 'none' }),
+        [`${gluegun_1.strings.kebabCase(contract)}-utils.ts`]: await prettier_1.default.format(generateTestHelper(contract, events, importTypes), { parser: 'typescript', semi: false, trailingComma: 'none' }),
     };
 };
 exports.generateTestsFiles = generateTestsFiles;

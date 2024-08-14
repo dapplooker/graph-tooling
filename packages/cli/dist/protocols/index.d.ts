@@ -6,9 +6,9 @@ export default class Protocol {
     static fromDataSources(dataSourcesAndTemplates: any): Protocol;
     name: ProtocolName;
     config: ProtocolConfig;
-    constructor(name: ProtocolName);
+    constructor(datasource: any);
     static availableProtocols(): immutable.Collection<ProtocolName, string[]>;
-    static availableNetworks(): immutable.Map<"ethereum" | "arweave" | "near" | "cosmos" | "substreams", immutable.List<string>>;
+    static availableNetworks(): immutable.Map<"ethereum" | "arweave" | "near" | "cosmos" | "substreams" | "substreams/triggers", immutable.List<string>>;
     static normalizeName(name: ProtocolName): ProtocolName;
     displayName(): string;
     isValidKindName(kind: string): boolean;
@@ -25,7 +25,7 @@ export default class Protocol {
     getManifestScaffold(): any;
     getMappingScaffold(): any;
 }
-export type ProtocolName = 'arweave' | 'ethereum' | 'near' | 'cosmos' | 'substreams';
+export type ProtocolName = 'arweave' | 'ethereum' | 'near' | 'cosmos' | 'substreams' | 'substreams/triggers';
 export interface ProtocolConfig {
     displayName: string;
     abi?: any;

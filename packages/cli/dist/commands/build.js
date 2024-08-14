@@ -26,8 +26,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const core_1 = require("@oclif/core");
 const gluegun_1 = require("gluegun");
+const core_1 = require("@oclif/core");
 const compiler_1 = require("../command-helpers/compiler");
 const DataSourcesExtractor = __importStar(require("../command-helpers/data-sources"));
 const network_1 = require("../command-helpers/network");
@@ -71,7 +71,7 @@ class BuildCommand extends core_1.Command {
             await compiler.watchAndCompile();
         }
         else {
-            const result = await compiler.compile({ validate: false });
+            const result = await compiler.compile({ validate: true });
             if (result === false) {
                 this.exit(1);
             }

@@ -1,0 +1,16 @@
+{
+  "name": "dev-swap1",
+  "license": "UNLICENSED",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "deploy": "graph deploy --node https://api.thegraph.com/deploy/  dapplooker/dev-swap1",
+    "create-local": "graph create --node http://localhost:8020/ dapplooker/dev-swap1",
+    "remove-local": "graph remove --node http://localhost:8020/ dapplooker/dev-swap1",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 dapplooker/dev-swap1"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "git+ssh://git@github.com/dapplooker/graph-cli-dlooker.git",
+    "@graphprotocol/graph-ts": "0.24.1"
+  }
+}

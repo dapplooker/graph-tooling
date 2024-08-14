@@ -5,7 +5,7 @@ module.exports = {
         return ['poa-core', 'poa-sokol', 'xdai', 'mumbai', 'celo', 'celo-alfajores', 'chapel', 'clover', 'avalanche', 'fuse', 'mbase', 'near-mainnet'];
     },
     get etherscanSupportedNetworks() {
-        return ['kovan', 'rinkeby', 'ropsten', 'goerli', 'moonriver', 'moonbeam', 'matic', 'fantom', 'bsc', ''];
+        return ['kovan', 'rinkeby', 'ropsten', 'goerli', 'moonriver', 'moonbeam', 'matic', 'fantom', 'bsc', 'nordek', ''];
     },
     get callHandlerSupportedNetworks() {
         return []; //['fantom', 'mbase', 'mainnet','']
@@ -17,6 +17,7 @@ module.exports = {
             .set('moonbeam', 'https://api-moonbeam.moonscan.io/api')
             .set('matic', 'https://api.polygonscan.com/api')
             .set('bsc', 'https://api.bscscan.com/api')
-            .set('fantom', 'https://api.ftmscan.com/api');
+            .set('fantom', 'https://api.ftmscan.com/api')
+            .set('nordek', 'https://nordekscan.com/api');
     },
 };

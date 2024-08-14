@@ -1,0 +1,464 @@
+type SVBTCPositionAddBaseTokenEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  baseToken: Bytes! # address
+}
+
+type SVBTCPositionAddYieldTokenEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+}
+
+type SVBTCPositionAdminUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  admin: Bytes! # address
+}
+
+type SVBTCPositionApproveBorrowEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  owner: Bytes! # address
+  spender: Bytes! # address
+  amount: BigInt! # uint256
+}
+
+type SVBTCPositionApproveWithdrawEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  owner: Bytes! # address
+  spender: Bytes! # address
+  yieldToken: Bytes! # address
+  amount: BigInt! # uint256
+}
+
+type SVBTCPositionBaseTokenEnabledEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  baseToken: Bytes! # address
+  enabled: Boolean! # bool
+}
+
+type SVBTCPositionBorrowEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  owner: Bytes! # address
+  amount: BigInt! # uint256
+  recipient: Bytes! # address
+}
+
+type SVBTCPositionBorrowingLimitUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  maximum: BigInt! # uint256
+  blocks: BigInt! # uint256
+}
+
+type SVBTCPositionCreditUnlockRateUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+  blocks: BigInt! # uint256
+}
+
+type SVBTCPositionDepositYieldTokenEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  sender: Bytes! # address
+  yieldToken: Bytes! # address
+  amount: BigInt! # uint256
+  recipient: Bytes! # address
+}
+
+type SVBTCPositionDonateEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  sender: Bytes! # address
+  yieldToken: Bytes! # address
+  amount: BigInt! # uint256
+}
+
+type SVBTCPositionHarvestEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+  minimumAmountOut: BigInt! # uint256
+  totalHarvested: BigInt! # uint256
+  credit: BigInt! # uint256
+}
+
+type SVBTCPositionHarvestExceedsOffsetEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+  currentValue: BigInt! # uint256
+  expectedValue: BigInt! # uint256
+}
+
+type SVBTCPositionInitializedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  version: Int! # uint8
+}
+
+type SVBTCPositionKeeperSetEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  sentinel: Bytes! # address
+  flag: Boolean! # bool
+}
+
+type SVBTCPositionMaximumExpectedValueUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+  maximumExpectedValue: BigInt! # uint256
+}
+
+type SVBTCPositionMaximumLossUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+  maximumLoss: BigInt! # uint256
+}
+
+type SVBTCPositionMinimumCollateralizationUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  minimumCollateralization: BigInt! # uint256
+}
+
+type SVBTCPositionPendingAdminUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  pendingAdmin: Bytes! # address
+}
+
+type SVBTCPositionProtocolFeeReceiverUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  protocolFeeReceiver: Bytes! # address
+}
+
+type SVBTCPositionProtocolFeeUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  protocolFee: BigInt! # uint256
+}
+
+type SVBTCPositionProtocolTokenRequiredActiveUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  flag: Boolean! # bool
+}
+
+type SVBTCPositionRedlistActiveUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  flag: Boolean! # bool
+}
+
+type SVBTCPositionRepayLimitUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  baseToken: Bytes! # address
+  maximum: BigInt! # uint256
+  blocks: BigInt! # uint256
+}
+
+type SVBTCPositionRepayWithBaseTokenEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  sender: Bytes! # address
+  baseToken: Bytes! # address
+  amount: BigInt! # uint256
+  recipient: Bytes! # address
+  credit: BigInt! # uint256
+}
+
+type SVBTCPositionRepayWithCollateralEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  owner: Bytes! # address
+  yieldToken: Bytes! # address
+  baseToken: Bytes! # address
+  shares: BigInt! # uint256
+  credit: BigInt! # uint256
+}
+
+type SVBTCPositionRepayWithCollateralLimitUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  baseToken: Bytes! # address
+  maximum: BigInt! # uint256
+  blocks: BigInt! # uint256
+}
+
+type SVBTCPositionRepayWithDebtTokenEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  sender: Bytes! # address
+  amount: BigInt! # uint256
+  recipient: Bytes! # address
+}
+
+type SVBTCPositionSavvySageUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  savvySage: Bytes! # address
+}
+
+type SVBTCPositionSentinelSetEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  sentinel: Bytes! # address
+  flag: Boolean! # bool
+}
+
+type SVBTCPositionSnapEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+  expectedValue: BigInt! # uint256
+}
+
+type SVBTCPositionSweepTokensEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  rewardToken: Bytes! # address
+  amount: BigInt! # uint256
+}
+
+type SVBTCPositionTokenAdapterUpdatedEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+  tokenAdapter: Bytes! # address
+}
+
+type SVBTCPositionWithdrawYieldTokenEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  owner: Bytes! # address
+  yieldToken: Bytes! # address
+  shares: BigInt! # uint256
+  recipient: Bytes! # address
+}
+
+type SVBTCPositionYieldTokenEnabledEvent @entity {
+  id: ID!
+  txHash: Bytes
+  fromAddress: Bytes # address
+  toAddress: Bytes # address
+  valueTransferred: BigInt
+  gasLimit: BigInt
+  gasPrice: BigInt
+  blockTimestamp: BigInt! # uint256
+  yieldToken: Bytes! # address
+  enabled: Boolean! # bool
+}

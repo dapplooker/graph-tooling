@@ -6,12 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const child_process_1 = require("child_process");
 const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
-const core_1 = require("@oclif/core");
-const fetch_1 = require("@whatwg-node/fetch");
 const binary_install_raw_1 = require("binary-install-raw");
 const gluegun_1 = require("gluegun");
 const js_yaml_1 = __importDefault(require("js-yaml"));
 const semver_1 = __importDefault(require("semver"));
+const core_1 = require("@oclif/core");
+const constants_1 = require("../constants");
+const fetch_1 = __importDefault(require("../fetch"));
 class TestCommand extends core_1.Command {
     async run() {
         const { args: { datasource }, flags: { coverage, docker, force, logs, recompile, version }, } = await this.parse(TestCommand);
@@ -48,9 +49,9 @@ class TestCommand extends core_1.Command {
         // Fetch the latest version tag if version is not specified with -v/--version or if the version is not cached
         if (opts.force || (!opts.version && !opts.latestVersion)) {
             this.log('Fetching latest version tag...');
-            const result = await (0, fetch_1.fetch)('https://api.github.com/repos/LimeChain/matchstick/releases/latest', {
+            const result = await (0, fetch_1.default)('https://api.github.com/repos/LimeChain/matchstick/releases/latest', {
                 headers: {
-                    'User-Agent': '@graphprotocol/graph-cli',
+                    ...constants_1.GRAPH_CLI_SHARED_HEADERS,
                 },
             });
             const json = await result.json();
@@ -123,7 +124,7 @@ async function runBinary(datasource, opts) {
     const versionOpt = opts.version;
     const latestVersion = opts.latestVersion;
     const recompileOpt = opts.recompile;
-    const platform = await getPlatform.bind(this)(logsOpt);
+    const platform = await getPlatform.bind(this)(versionOpt || latestVersion, logsOpt);
     const url = `https://github.com/LimeChain/matchstick/releases/download/${versionOpt || latestVersion}/${platform}`;
     if (logsOpt) {
         this.log(`Download link: ${url}`);
@@ -141,11 +142,11 @@ async function runBinary(datasource, opts) {
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     args.length > 0 ? binary.run(...args) : binary.run();
 }
-async function getPlatform(logsOpt) {
+async function getPlatform(matchstickVersion, logsOpt) {
     const type = os_1.default.type();
     const arch = os_1.default.arch();
     const cpuCore = os_1.default.cpus()[0];
-    const isAppleSilicon = arch === 'arm64' && /Apple (M1|M2|processor)/.test(cpuCore.model);
+    const isAppleSilicon = arch === 'arm64' && /Apple (M1|M2|M3|processor)/.test(cpuCore.model);
     const linuxInfo = type === 'Linux' ? await getLinuxInfo.bind(this)() : {};
     const linuxDistro = linuxInfo.name;
     const release = linuxInfo.version || os_1.default.release();
@@ -154,23 +155,34 @@ async function getPlatform(logsOpt) {
         this.log(`OS type: ${linuxDistro || type}\nOS arch: ${arch}\nOS release: ${release}\nOS major version: ${majorVersion}\nCPU model: ${cpuCore.model}`);
     }
     if (arch === 'x64' || isAppleSilicon) {
-        if (type === 'Darwin') {
-            if (majorVersion === 18 || majorVersion === 19) {
-                return 'binary-macos-10.15'; // GitHub dropped support for macOS 10.14 in Actions, but it seems 10.15 binary works on 10.14 too
+        if (semver_1.default.gt(matchstickVersion, '0.5.4')) {
+            if (type === 'Darwin') {
+                if (isAppleSilicon) {
+                    return 'binary-macos-12-m1';
+                }
+                return 'binary-macos-12';
             }
-            if (isAppleSilicon) {
-                return 'binary-macos-11-m1';
-            }
-            return 'binary-macos-11';
-        }
-        if (type === 'Linux') {
-            if (majorVersion === 18) {
-                return 'binary-linux-18';
-            }
-            if (majorVersion === 22) {
+            if (type === 'Linux' && majorVersion === 22) {
                 return 'binary-linux-22';
             }
-            return 'binary-linux-20';
+        }
+        else {
+            if (type === 'Darwin') {
+                if (majorVersion === 18 || majorVersion === 19) {
+                    return 'binary-macos-10.15';
+                }
+                if (isAppleSilicon) {
+                    return 'binary-macos-11-m1';
+                }
+                return 'binary-macos-11';
+            }
+            if (type === 'Linux') {
+                return majorVersion === 18
+                    ? 'binary-linux-18'
+                    : majorVersion === 22
+                        ? 'binary-linux-22'
+                        : 'binary-linux-20';
+            }
         }
     }
     throw new Error(`Unsupported platform: ${type} ${arch} ${majorVersion}`);
@@ -270,7 +282,7 @@ async function dockerfile(dockerfilePath, versionOpt, latestVersion) {
     const spinner = gluegun_1.print.spin('Generating Dockerfile...');
     try {
         // Fetch the Dockerfile template content from the demo-subgraph repo
-        const content = await (0, fetch_1.fetch)('https://raw.githubusercontent.com/LimeChain/demo-subgraph/main/Dockerfile').then(response => {
+        const content = await (0, fetch_1.default)('https://raw.githubusercontent.com/LimeChain/demo-subgraph/main/Dockerfile').then(response => {
             if (response.ok) {
                 return response.text();
             }

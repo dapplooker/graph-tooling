@@ -154,6 +154,20 @@ const validators = immutable_1.default.fromJS({
                 message: `Expected filename, found ${typeName(value)}:\n${value}`,
             },
         ]),
+    JSON: (value, ctx) => {
+        try {
+            JSON.parse(JSON.stringify(value));
+            return List();
+        }
+        catch (e) {
+            return immutable_1.default.fromJS([
+                {
+                    path: ctx.get('path'),
+                    message: `Invalid JSON value: ${e.message}`,
+                },
+            ]);
+        }
+    },
     Boolean: (value, ctx) => typeof value === 'boolean'
         ? List()
         : immutable_1.default.fromJS([

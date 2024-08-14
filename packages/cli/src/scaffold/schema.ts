@@ -37,7 +37,7 @@ export const protocolTypeToGraphQL = (protocol: string, name: string) => {
   // TODO: this is a hack to make array type non-nullable
   // We should refactor the way we convert the Values from ASC to GraphQL
   // For arrays we always want non-nullable children
-  return convertedType.endsWith(']') ? convertedType.replace(']', '!]') : convertedType;
+  return convertedType.endsWith(']') ? convertedType.replace(/\]/g, '!]') : convertedType;
 };
 
 export const generateField = ({
@@ -61,7 +61,11 @@ export const generateEventFields = ({
 }) =>
   input.type == 'tuple'
     ? util
-        .unrollTuple({ value: input, path: [input.name || `param${index}`], index })
+        .unrollTuple({
+          value: input,
+          path: [input.name || `param${index}`],
+          index,
+        })
         .map(({ path, type }: any) => generateField({ name: path.join('_'), type, protocolName }))
     : [
         generateField({

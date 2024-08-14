@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs-extra';
 import * as toolbox from 'gluegun';
 import immutable from 'immutable';
+import type { IPFSHTTPClient } from 'ipfs-http-client';
 import yaml from 'js-yaml';
 import { Spinner, step, withSpinner } from '../command-helpers/spinner';
 import debug from '../debug';
@@ -12,7 +13,6 @@ import Protocol from '../protocols';
 import Subgraph from '../subgraph';
 import Watcher from '../watcher';
 import * as asc from './asc';
-import type { IPFSHTTPClient } from 'ipfs-http-client';
 
 const compilerDebug = debug('graph-cli:compiler');
 
@@ -502,6 +502,9 @@ export default class Compiler {
   async writeSubgraphToOutputDirectory(protocol: Protocol, subgraph: immutable.Map<any, any>) {
     const displayDir = `${this.displayPath(this.options.outputDir)}${toolbox.filesystem.separator}`;
 
+    // ensure that the output directory exists
+    fs.mkdirsSync(this.options.outputDir);
+
     return await withSpinner(
       `Write compiled subgraph to ${displayDir}`,
       `Failed to write compiled subgraph to ${displayDir}`,
@@ -545,7 +548,7 @@ export default class Compiler {
                 );
             }
 
-            if (protocol.name == 'substreams') {
+            if (protocol.name == 'substreams' || protocol.name == 'substreams/triggers') {
               updatedDataSource = updatedDataSource
                 // Write data source ABIs to the output directory
                 .updateIn(['source', 'package'], (substreamsPackage: any) =>
@@ -565,6 +568,17 @@ export default class Compiler {
                     );
                   }),
                 );
+
+              if (updatedDataSource.getIn(['mapping', 'file'])) {
+                updatedDataSource = updatedDataSource.updateIn(
+                  ['mapping', 'file'],
+                  (mappingFile: string) =>
+                    path.relative(
+                      this.options.outputDir,
+                      path.resolve(this.sourceDir, mappingFile),
+                    ),
+                );
+              }
 
               return updatedDataSource;
             }
@@ -659,7 +673,7 @@ export default class Compiler {
         }
 
         // Upload all mappings
-        if (this.protocol.name === 'substreams') {
+        if (this.protocol.name === 'substreams' || this.protocol.name === 'substreams/triggers') {
           for (const [i, dataSource] of subgraph.get('dataSources').entries()) {
             updates.push({
               keyPath: ['dataSources', i, 'source', 'package', 'file'],
@@ -669,6 +683,17 @@ export default class Compiler {
                 spinner,
               ),
             });
+
+            if (dataSource.getIn(['mapping', 'file'])) {
+              updates.push({
+                keyPath: ['dataSources', i, 'mapping', 'file'],
+                value: await this._uploadFileToIPFS(
+                  dataSource.getIn(['mapping', 'file']),
+                  uploadedFiles,
+                  spinner,
+                ),
+              });
+            }
           }
         } else {
           for (const [i, dataSource] of subgraph.get('dataSources').entries()) {
