@@ -49,8 +49,8 @@ class Scaffold {
                 test: 'graph test',
             },
             dependencies: {
-                '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?cli-upgrade",
-                '@graphprotocol/graph-ts': `0.32.0`,
+                '@graphprotocol/graph-cli': "https://gitpkg.vercel.app/dapplooker/graph-tooling/packages/cli?dl-main",
+                '@graphprotocol/graph-ts': `0.35.1`,
             },
             devDependencies: this.protocol.hasEvents() ? { 'matchstick-as': `0.5.0` } : undefined,
         }), { parser: 'json' });
@@ -71,7 +71,7 @@ class Scaffold {
                 test: 'graph test',
             },
             dependencies: {
-                '@graphprotocol/graph-cli': "https://gitpkg.now.sh/dapplooker/graph-tooling/packages/cli?cli-upgrade",
+                '@graphprotocol/graph-cli': "https://gitpkg.vercel.app/dapplooker/graph-tooling/packages/cli?dl-main",
             },
         }), { parser: 'json' });
     }
